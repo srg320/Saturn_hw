@@ -188,6 +188,8 @@ cd_flags:						;0F0002A6 (0x0F00025C+0x4A)
 	.org 0F0002AC
 FAD:							;0F0002AC-0F0002AF (0x0F00025C+0x50)
 	dc.l 	0x00000000
+FAD_task6:						;0F0002B0-0F0002B3 (0x0F00025C+0x54)
+	dc.l 	0x00000000
 
 	.org 0F0002C4 
 cdd_comm:						;0F0002C4-0F0002CF
@@ -231,7 +233,9 @@ unk_0313:						;0F000313
 	dc.b 	0x00					;
 
 
-
+	.org 0x0F000314
+unk_0314:						;0x0F000314 (0x0F000314+0x00)
+	dc.b 	0x00000000
 cddata_state:					;0x0F000318 (0x0F000314+0x04)
 	dc.b 	0x00					;
 
@@ -249,14 +253,14 @@ cddata_process_block_pos:			;0x0F000322 (0x0F000314+0x0E)
 	dc.b 	0x00	
 
 cddata_free_block_addr:				;0x0F000324-0x0F000327 (0x0F000314+0x10)
-	dc.b 	0x00000000	
+	dc.l 	0x00000000	
 cddata_curr_block_addr:				;0x0F000328-0x0F00032B (0x0F000314+0x14)
-	dc.b 	0x00000000	
+	dc.l 	0x00000000	
 cddata_process_block_addr:			;0x0F00032C-0x0F00032F (0x0F000314+0x18)
-	dc.b 	0x00000000	
+	dc.l 	0x00000000	
 
 cddata_process_block_fad:			;0x0F000338-0x0F00033B (0x0F000314+0x24)
-	dc.b 	0x00000000	
+	dc.l 	0x00000000	
 
 
 	.org 0x0F0006A0 
