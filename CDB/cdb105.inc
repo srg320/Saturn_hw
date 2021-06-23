@@ -190,6 +190,20 @@ hw_flags:						;0F00027D (0x0F00025C+0x21)
 cd_status:						;0F00028A (0x0F00025C+0x2E)
 	dc.b 	0x00
 
+	STAT_BUSY 			= 0x00
+	STAT_PAUSE 			= 0x01
+	STAT_STANDBY 		= 0x02
+	STAT_PLAY 			= 0x03
+	STAT_SEEK			= 0x04
+	STAT_SCAN			= 0x05
+	STAT_OPEN			= 0x06
+	STAT_NODISC			= 0x07
+	STAT_RETRY			= 0x08
+	STAT_ERROR			= 0x09
+	STAT_FATAL			= 0x0A
+	STAT_PERI 			= 0x20
+	STAT_TRNS 			= 0x40
+	STAT_WAIT 			= 0x80
 
 
 	.org 0F0002A5
@@ -203,6 +217,10 @@ cd_flags:						;0F0002A6 (0x0F00025C+0x4A)
 FAD:							;0F0002AC-0F0002AF (0x0F00025C+0x50)
 	dc.l 	0x00000000
 FAD_task6:						;0F0002B0-0F0002B3 (0x0F00025C+0x54)
+	dc.l 	0x00000000
+unk_02B4:						;0F0002B4-0F0002B7 (0x0F00025C+0x58)
+	dc.l 	0x00000000
+FAD_02B8:						;0F0002B8-0F0002BB (0x0F00025C+0x5C)
 	dc.l 	0x00000000
 
 	.org 0F0002C4 
@@ -392,8 +410,13 @@ actual_size:					;0x0F0006BC-0x0F0006BF
 	dc.l 	0x00000000
 
 
-
-	.org 0x0F0006D8 
+	.org 0x0F0006D0
+search_result_fad:				;0x0F0006D0
+	dc.l 	0x00000000
+search_result_sector:				;0x0F0006D4
+	dc.w 	0x0000	
+search_result_partition:			;0x0F0006D6
+	dc.w 	0x0000	
 get_sector_size:					;0x0F0006D8 
 	dc.b 	0x00	
 put_sector_size:					;0x0F0006D9 
@@ -488,6 +511,13 @@ toc_dram_buf:					;0x09000064-0x090001FF
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
+first_info_track:
+	dc.l 	0x00000000				;0x09000200-0x09000203
+last_info_track:
+	dc.l 	0x00000000				;0x09000204-0x09000207
+leadout:
+	dc.l 	0x00000000				;0x09000208-0x0900020B
+
 
 	.org 0x09000230
 cddata_dram_buf:					;0x09000230
