@@ -100,21 +100,24 @@ task_args_12:					;0F0001B8
 
 task_entry_13:					;0F0001BC-0F0001D3
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
-
-	entry_header		= 0x00
-		entry_tn		= 0x00
-		entry_fn		= 0x01
-		entry_header2	= 0x02
-		entry_header3	= 0x03
-	entry_m04			= 0x04
-	entry_m05			= 0x05
-	entry_m06			= 0x06
-	entry_m07			= 0x07
-	entry_stack			= 0x08
-	entry_m0C			= 0x0C
-	entry_next			= 0x10
-	entry_m14			= 0x14
-	entry_args			= 0x18
+						
+							;struct task_entry {
+	entry_header		= 0x00	;  struct entry_header {
+		entry_tn		= 0x00	;    u8 tn;
+		entry_fn		= 0x01	;    u8 fn;
+		entry_header2	= 0x02	;    u8 m02;
+		entry_header3	= 0x03	;    u8 m03;
+							;  } header;
+	entry_m04			= 0x04	;  u8 m04;
+	entry_m05			= 0x05	;  u8 m05;
+	entry_m06			= 0x06	;  u8 m06;
+	entry_m07			= 0x07	;  u8 m07;
+	entry_stack			= 0x08	;  u32 stack;
+	entry_m0C			= 0x0C	;  u32 m0C;
+	entry_next			= 0x10	;  u32 next;
+	entry_m14			= 0x14	;  u32 m14;
+	entry_args			= 0x18	;  u32 args[1];
+							;};
 
 
 unk_01D4:						;0F0001D4-0F0001D7
@@ -246,22 +249,34 @@ cdd_rx_data:					;0F0002D0-0F0002DB (0x0F00025C+0x74)
 	cdd_rx_done 	= 11
 
 
-	.org 0F000304
-cdd_tx_data:					;0F000304-0F00030F
+
+
+	.org 0x0F0002F0
+unk_02F0:						;0x0F0002F0-0x0F0002F7
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+unk_02F8:						;0x0F0002F8
+	dc.b 	0x00
+unk_02F0:						;0x0F0002F9
+	dc.b 	0x00
+
+
+
+	.org 0x0F000304
+cdd_tx_data:					;0x0F000304-0x0F00030F
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 		0x00,0x00,0x00,0x00
 	cdd_tx_crc 		= 11
 
-cdd_csum:						;0F000310
+cdd_csum:						;0x0F000310
 	dc.b 	0x00					;checksum
 
-cdd_nb:						;0F000311
+cdd_nb:						;0x0F000311
 	dc.b 	0x00					;nbytes
 
-cdd_ret:						;0F000312
+cdd_ret:						;0x0F000312
 	dc.b 	0x00					;
 
-unk_0313:						;0F000313
+unk_0313:						;0x0F000313
 	dc.b 	0x00					;
 
 
@@ -396,9 +411,9 @@ partition_data_array:				;0x0F000600-0x0F00068F
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
-
 							;0x0F000690 
-
+	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 
 
 	.org 0x0F0006A0 
@@ -430,6 +445,12 @@ set_filter_param:					;0x0F000738-0x0F00073F
 set_filter_flags:					;0x0F000740
 	dc.b 	0x00	
 
+
+	.org 0x0F000774 
+ip_maker_id:					;u8 ip_maker_id[8];//0x0F000774-0x0F00077B
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+ip_product_number:				;u8 ip_product_number[10];//0x0F00077C-0x0F000785
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 
 
 	.org 0x0F0008F8
@@ -522,4 +543,29 @@ leadout:
 	.org 0x09000230
 cddata_dram_buf:					;0x09000230
 	dc.b 	0x00	
+
+
+							;struct IP{
+	sys_id		= 0			;  struct sys_id{
+	hw_id 		= 0			;    u8 hw_id[16];
+	maker_id 		= 16			;    u8 maker_id[16];
+	product 		= 32			;    u8 product[10];
+	version 		= 42			;    u8 version[6];
+	date 			= 48			;    u8 date[8];
+	def_info 		= 56			;    u8 def_info[8];
+	area_sym 		= 64			;    u8 area_sym[10];
+	space 		= 74			;    u8 space[6];
+	periph 		= 80			;    u8 periph[16];
+	title 		= 96			;    u8 title[112];
+	reserved 		= 208			;    u8 reserved[16];
+	ip_size 		= 224			;    u32 ip_size;
+	reserved2 		= 228			;    u8 reserved2[4];
+	stack_m 		= 232			;    u32 stack_m;
+	stack_s 		= 236			;    u32 stack_s;
+	read_addr 		= 240			;    u32 read_addr;
+	read_size 		= 244			;    u32 read_size;
+	reserved3 		= 248			;    u8 reserved3[8];
+							;  };
+							;};
+
 
