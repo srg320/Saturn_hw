@@ -119,6 +119,15 @@ task_entry_13:					;0F0001BC-0F0001D3
 	entry_args			= 0x18	;  u32 args[1];
 							;};
 
+							;union handle_t {
+	handle_h			= 0x00	;  u32 h;
+							;  struct{
+	handle_tn			= 0x00	;    u8 tn;
+	handle_fn			= 0x01	;    u8 fn;
+	handle_arg			= 0x02	;    u16 arg;
+							;  };
+							;};
+
 
 unk_01D4:						;0F0001D4-0F0001D7
 	dc.l 	0x00000000
@@ -214,7 +223,8 @@ cd_state:						;0F0002A5 (0x0F00025C+0x49)
 	dc.b 	0x00
 cd_flags:						;0F0002A6 (0x0F00025C+0x4A)
 	dc.b 	0x00
-
+cd_flags2:						;0F0002A7 (0x0F00025C+0x4B)
+	dc.b 	0x00
 
 	.org 0F0002AC
 FAD:							;0F0002AC-0F0002AF (0x0F00025C+0x50)
@@ -223,7 +233,9 @@ FAD_task6:						;0F0002B0-0F0002B3 (0x0F00025C+0x54)
 	dc.l 	0x00000000
 unk_02B4:						;0F0002B4-0F0002B7 (0x0F00025C+0x58)
 	dc.l 	0x00000000
-FAD_02B8:						;0F0002B8-0F0002BB (0x0F00025C+0x5C)
+FAD_02B8:						;0F0002B8-0F0002BB
+	dc.l 	0x00000000
+FAD_02BC:						;0F0002BC-0F0002BF
 	dc.l 	0x00000000
 
 	.org 0F0002C4 
@@ -234,20 +246,20 @@ cdd_comm:						;0F0002C4-0F0002CF
 cdd_rx_data:					;0F0002D0-0F0002DB (0x0F00025C+0x74)
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 		0x00,0x00,0x00,0x00
-
-	cdd_rx_stat 	= 0
-	cdd_rx_qcode 	= 1
-	cdd_rx_track 	= 2
-	cdd_rx_index 	= 3
-	cdd_rx_mm 		= 4
-	cdd_rx_ss 		= 5
-	cdd_rx_ff 		= 6
-
-	cdd_rx_abs_mm 	= 8
-	cdd_rx_abs_ss 	= 9
-	cdd_rx_abs_ff 	= 10
-	cdd_rx_done 	= 11
-
+							;struct cdd_rx_t {
+	cdd_rx_stat 	= 0			;  u8 stat;
+	cdd_rx_qcode 	= 1			;  u8 qcode;
+	cdd_rx_track 	= 2			;  u8 track;
+	cdd_rx_index 	= 3			;  u8 index;
+	cdd_rx_mm 		= 4			;  u8 mm;
+	cdd_rx_ss 		= 5			;  u8 ss;
+	cdd_rx_ff 		= 6			;  u8 ff;
+							;  u8 m07;
+	cdd_rx_abs_mm 	= 8			;  u8 abs_mm;
+	cdd_rx_abs_ss 	= 9			;  u8 abs_ss;
+	cdd_rx_abs_ff 	= 10			;  u8 abs_ff;
+	cdd_rx_done 	= 11			;  u8 done;
+							;} cdd_rx_data;
 
 
 
@@ -280,7 +292,8 @@ unk_0313:						;0x0F000313
 	dc.b 	0x00					;
 
 
-	.org 0x0F000314
+;task5 area
+	.org 0x0F000314				
 unk_0314:						;0x0F000314 (0x0F000314+0x00)
 	dc.b 	0x00000000
 cddata_state:					;0x0F000318 (0x0F000314+0x04)
@@ -309,6 +322,7 @@ cddata_process_block_addr:			;0x0F00032C-0x0F00032F (0x0F000314+0x18)
 
 cddata_process_block_fad:			;0x0F000338-0x0F00033B (0x0F000314+0x24)
 	dc.l 	0x00000000	
+
 
 	.org 0x0F000344
 filter_num:						;0x0F000344
@@ -341,7 +355,7 @@ filter_data_array:				;0x0F000420-0x0F00059F
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000	;filter21
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000	;filter22
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000	;filter23
-							;struct filter_data {
+							;struct filter_data_t {
 	filter_mode 	= 0			;  u8 mode;
 	filter_m1 		= 1			;  u8 m1;
 	filter_fid 		= 2			;  u8 fid;
@@ -446,6 +460,9 @@ set_filter_flags:					;0x0F000740
 	dc.b 	0x00	
 
 
+;task7 area
+	.org 0x0F000744 
+
 	.org 0x0F000774 
 ip_maker_id:					;u8 ip_maker_id[8];//0x0F000774-0x0F00077B
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
@@ -518,7 +535,9 @@ task_stack_1:					;L001374
 
 
 	.org 0x09000064
-toc_dram_buf:					;0x09000064-0x090001FF
+unk_09000064:					;0x09000064-0x09000067
+	dc.l 	0x00000000
+toc_dram_buf:					;0x09000068-0x090001FF
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
@@ -531,7 +550,7 @@ toc_dram_buf:					;0x09000064-0x090001FF
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
-	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
+	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 first_info_track:
 	dc.l 	0x00000000				;0x09000200-0x09000203
 last_info_track:
@@ -539,6 +558,23 @@ last_info_track:
 leadout:
 	dc.l 	0x00000000				;0x09000208-0x0900020B
 
+							;union track_t {
+	v				= 0x00	;  u32 v;
+							;  struct{
+	ctrl_adr			= 0x00	;    u8 ctrl_adr;
+	fad				= 0x01	;    u32:24 fad;
+							;  };
+							;};
+
+							;union info_track_t {
+	v				= 0x00	;  u32 v;
+							;  struct{
+	ctrl_adr			= 0x00	;    u8 ctrl_adr;
+	num				= 0x01	;    u8 num;
+	psec				= 0x02	;    u8 psec;
+	pframe			= 0x03	;    u8 pframe;
+							;  };
+							;};
 
 	.org 0x09000230
 cddata_dram_buf:					;0x09000230
