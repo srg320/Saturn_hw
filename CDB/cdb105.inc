@@ -98,16 +98,19 @@ task_entry_12:					;0F0001A0
 task_args_12:					;0F0001B8
 	dc.l 	0x00000000
 
-task_entry_13:					;0F0001BC-0F0001D3
+task_entry_13:					;task_entry task_entry_13;//0x0F0001BC-0x0F0001D3
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000
 						
 							;struct task_entry {
-	entry_header		= 0x00	;  struct entry_header {
-		entry_tn		= 0x00	;    u8 tn;
-		entry_fn		= 0x01	;    u8 fn;
-		entry_header2	= 0x02	;    u8 m02;
-		entry_header3	= 0x03	;    u8 m03;
-							;  } header;
+							;  union {
+	entry_header		= 0x00	;    u32 header;
+							;    struct {
+	entry_tn			= 0x00	;      u8 tn;
+	entry_fn			= 0x01	;      u8 fn;
+	entry_m02			= 0x02	;      u8 m02;
+	entry_m03			= 0x03	;      u8 m03;
+							;    };
+							;  };
 	entry_m04			= 0x04	;  u8 m04;
 	entry_m05			= 0x05	;  u8 m05;
 	entry_m06			= 0x06	;  u8 m06;
@@ -121,7 +124,7 @@ task_entry_13:					;0F0001BC-0F0001D3
 
 							;union handle_t {
 	handle_h			= 0x00	;  u32 h;
-							;  struct{
+							;  struct {
 	handle_tn			= 0x00	;    u8 tn;
 	handle_fn			= 0x01	;    u8 fn;
 	handle_arg			= 0x02	;    u16 arg;
@@ -129,33 +132,14 @@ task_entry_13:					;0F0001BC-0F0001D3
 							;};
 
 
-unk_01D4:						;0F0001D4-0F0001D7
+current_task_entry:				;task_entry* current_task_entry;//0x0F0001D4-0x0F0001D7
 	dc.l 	0x00000000
-task_queue_0:					;0F0001D8-0F0001DB
-	dc.l 	0x00000000
-task_queue_4:					;0F0001DC-0F0001DF
-	dc.l 	0x00000000
-task_queue_6:					;0F0001E0-0F0001E3
-	dc.l 	0x00000000
-task_queue_5:					;0F0001E4-0F0001E7
-	dc.l 	0x00000000
-task_queue_12:					;0F0001E8-0F0001EB
-	dc.l 	0x00000000
-task_queue_7:					;0F0001EC-0F0001EF
-	dc.l 	0x00000000
-task_queue_8:					;0F0001F0-0F0001F3
-	dc.l 	0x00000000
-task_queue_2:					;0F0001F4-0F0001F7
-	dc.l 	0x00000000
-task_queue_1:					;0F0001F8-0F0001FB
-	dc.l 	0x00000000
-task_queue_13:					;0F0001FC-0F0001FF
-	dc.l 	0x00000000
-task_queue_9:					;0F000200-0F000203
-	dc.l 	0x00000000
-task_queue_14:					;0F000204-0F000207
-	dc.l 	0x00000000
-task_queue_14_end:				;0F000208
+
+task_queue:						;task_entry* task_queue[12];//0x0F0001D8-0x0F000207
+	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000
+	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000
+	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000
+task_queue_end:					;0F000208
 
 
 
@@ -163,6 +147,12 @@ task_queue_14_end:				;0F000208
 timer_high_cnt:					;0x0F00021C-0x0F00021F
 	dc.l 	0x00000000
 
+
+	CDD_COMM_NONE 		= 0x00
+	CDD_COMM_SEEK_RING	= 0x02
+	CDD_COMM_TOC 		= 0x03
+	CDD_COMM_READ		= 0x06
+	CDD_COMM_SEEK		= 0x09
 
 	.org 0F00025C
 init_cd_flags:					;0F00025C
@@ -174,8 +164,10 @@ init_cd_flags:					;0F00025C
 	IFLAG_SPEED_1X 		= 0x10
 	IFLAG_NO_CHANGE 		= 0x80
 
-unknown_025D:					;0F00025D-0F00025F
-	dc.b 	0x00,0x00,0x00
+unknown_025D:					;0F00025D-0F00025E
+	dc.b 	0x00,0x00
+cdd_cmd_flags:					;0F00025F (0x0F00025C+0x03)
+	dc.b 	0x00
 init_cd_stby:					;0F000260 (0x0F00025C+0x04)
 	dc.w 	0x0000
 init_cd_ecc:					;0F000262 (0x0F00025C+0x06)
@@ -198,9 +190,12 @@ cd_status_buf_sel:				;0F00027C (0x0F00025C+0x20)
 hw_flags:						;0F00027D (0x0F00025C+0x21)
 	dc.b 	0x00
 
-	.org 0F00028A
+	.org 0F000289
+session_num:					;0F000289 (0x0F00025C+0x2D)
+	dc.b 	0x00
 cd_status:						;0F00028A (0x0F00025C+0x2E)
 	dc.b 	0x00
+
 
 	STAT_BUSY 			= 0x00
 	STAT_PAUSE 			= 0x01
@@ -231,14 +226,14 @@ FAD:							;0F0002AC-0F0002AF (0x0F00025C+0x50)
 	dc.l 	0x00000000
 FAD_task6:						;0F0002B0-0F0002B3 (0x0F00025C+0x54)
 	dc.l 	0x00000000
-unk_02B4:						;0F0002B4-0F0002B7 (0x0F00025C+0x58)
+FAD_02B4:						;0F0002B4-0F0002B7 (0x0F00025C+0x58)
 	dc.l 	0x00000000
-FAD_02B8:						;0F0002B8-0F0002BB
+FAD_02B8:						;0F0002B8-0F0002BB (0x0F00025C+0x5C)
 	dc.l 	0x00000000
-FAD_02BC:						;0F0002BC-0F0002BF
+FAD_02BC:						;0F0002BC-0F0002BF (0x0F00025C+0x60)
 	dc.l 	0x00000000
-
-	.org 0F0002C4 
+FAD_02C0:						;0F0002C0-0F0002C3
+	dc.l 	0x00000000
 cdd_comm:						;0F0002C4-0F0002CF
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 		0x00,0x00,0x00,0x00
@@ -268,7 +263,7 @@ unk_02F0:						;0x0F0002F0-0x0F0002F7
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 unk_02F8:						;0x0F0002F8
 	dc.b 	0x00
-unk_02F0:						;0x0F0002F9
+unk_02F9:						;0x0F0002F9
 	dc.b 	0x00
 
 
@@ -292,12 +287,20 @@ unk_0313:						;0x0F000313
 	dc.b 	0x00					;
 
 
-;task5 area
+;************************task5 area*****************************************
 	.org 0x0F000314				
-unk_0314:						;0x0F000314 (0x0F000314+0x00)
-	dc.b 	0x00000000
+cddata_block_next:				;0x0F000314 (0x0F000314+0x00)
+	dc.b 	0x00
+cddata_block_0315:				;0x0F000315 (0x0F000314+0x01)
+	dc.b 	0x00
+cddata_block_taken:				;0x0F000316 (0x0F000314+0x02)
+	dc.b 	0x00
+cddata_block_0317:				;0x0F000317 (0x0F000314+0x03)
+	dc.b 	0x00
 cddata_state:					;0x0F000318 (0x0F000314+0x04)
 	dc.b 	0x00					;
+cddata_flags:					;0x0F000319 (0x0F000314+0x05)
+	dc.b 	0x00	
 
 cddata_retry_cnt:					;0x0F00031C (0x0F000314+0x08)
 	dc.b 	0x00	
@@ -326,7 +329,46 @@ cddata_process_block_fad:			;0x0F000338-0x0F00033B (0x0F000314+0x24)
 
 	.org 0x0F000344
 filter_num:						;0x0F000344
-	dc.b 	0x00	
+	dc.b 	0x00
+
+
+;************************task4 area******************************************
+	.org 0x0F000348
+free_block_next:					;0x0F000348
+	dc.b 	0x00
+free_block_0349:					;0x0F000349 (0x0F000348+0x01)
+	dc.b 	0x00
+free_block_left:					;0x0F00034A (0x0F000348+0x02)
+	dc.b 	0x00
+
+	.org 0x0F000354
+block_chain:					;u8 block_chain[202];//0x0F000354-0x0F00041B
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+	dc.b 	0x00,0x00
 
 
 	.org 0x0F000420
@@ -355,7 +397,7 @@ filter_data_array:				;0x0F000420-0x0F00059F
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000	;filter21
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000	;filter22
 	dc.l 	0x00000000,0x00000000,0x00000000,0x00000000	;filter23
-							;struct filter_data_t {
+							;struct filter_data {
 	filter_mode 	= 0			;  u8 mode;
 	filter_m1 		= 1			;  u8 m1;
 	filter_fid 		= 2			;  u8 fid;
@@ -394,10 +436,10 @@ filter_connection_array:			;0x0F0005A0-0x0F0005FF
 	dc.b	0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00
 							;struct filter_connection {
-	filter_conn_m0 	= 0			;  u8 m0;
+	filter_conn_pout 	= 0			;  u8 pout;
 	filter_conn_m1 	= 1			;  u8 m1;
-	filter_conn_condt = 2			;  u8 condt;
-	filter_conn_condf = 3			;  u8 condf;
+	filter_conn_tout = 2			;  u8 tout;
+	filter_conn_fout = 3			;  u8 fout;
 							;} filter_connection_array[24];
 
 partition_data_array:				;0x0F000600-0x0F00068F
@@ -425,6 +467,15 @@ partition_data_array:				;0x0F000600-0x0F00068F
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
+							;struct partition_data {
+	partition_data_first = 0		;  u8 first;//first block in partition
+	partition_data_last = 1			;  u8 last;	//last block in partition
+	partition_data_size = 2			;  u8 size;	//partition size
+	partition_data_m3 = 3			;  u8 m3;	//
+	partition_data_pos = 4			;  u8 pos;	//current position from first block
+	partition_data_curr = 5			;  u8 curr;	//current block number
+							;} partition_data_array[24];
+
 							;0x0F000690 
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
@@ -435,11 +486,16 @@ partition_data_array:				;0x0F000600-0x0F00068F
 
 
 	.org 0x0F0006BC
-actual_size:					;0x0F0006BC-0x0F0006BF
+actual_size:					;u32 actual_size;//0x0F0006BC-0x0F0006BF
 	dc.l 	0x00000000
-
-
-	.org 0x0F0006D0
+command_param:					;u8 command_param[8];//0x0F0006C0-0x0F0006C7
+	dc.l 	0x00000000,0x00000000
+search_msf:						;u32 search_msf;//0x0F0006C8-0x0F0006CB
+	dc.l 	0x00000000
+search_sec_pos:					;u16 search_spos;//0x0F0006CC-0x0F0006CD
+	dc.w 	0x0000
+search_buf_num:					;u16 search_buf_num;//0x0F0006CE-0x0F0006CF
+	dc.w 	0x0000
 search_result_fad:				;0x0F0006D0
 	dc.l 	0x00000000
 search_result_sector:				;0x0F0006D4
@@ -452,18 +508,39 @@ put_sector_size:					;0x0F0006D9
 	dc.b 	0x00	
 
 
+	.org 0x0F0006DC
+cdirq0_state:					;0x0F0006DC (0x0F0006DC+0x00)
+	dc.b 	0x00
+cdirq1_state:					;0x0F0006DD (0x0F0006DC+0x01)
+	dc.b 	0x00
+cdirq_flags:					;0x0F0006DE (0x0F0006DC+0x02)
+	dc.b 	0x00
+timer_deviation:					;0x0F0006DF (0x0F0006DC+0x03)
+	dc.b 	0x00
+
+timer_fault_cnt:					;0x0F0006E3 (0x0F0006DC+0x07)
+	dc.b 	0x00
+timer_interval1:					;0x0F0006E4 (0x0F0006DC+0x08)
+	dc.l 	0x00000000
+timer_old:						;0x0F0006E8 (0x0F0006DC+0x0C)
+	dc.l 	0x00000000
+
 
 	.org 0x0F000738 
-set_filter_param:					;0x0F000738-0x0F00073F
+set_command_param:				;0x0F000738-0x0F00073F
 	dc.l 	0x00000000,0x00000000
-set_filter_flags:					;0x0F000740
+set_command_flag:					;0x0F000740
 	dc.b 	0x00	
 
 
-;task7 area
+;************************task7 area************************************
 	.org 0x0F000744 
 
-	.org 0x0F000774 
+	.org 0x0F000772
+curr_buf_num:					;0x0F000772
+	dc.b 	0x00
+unk_0773:						;0x0F000773
+	dc.b 	0x00
 ip_maker_id:					;u8 ip_maker_id[8];//0x0F000774-0x0F00077B
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 ip_product_number:				;u8 ip_product_number[10];//0x0F00077C-0x0F000785
@@ -580,9 +657,74 @@ leadout:
 cddata_dram_buf:					;0x09000230
 	dc.b 	0x00	
 
+							;union msf_t {
+	v				= 0		;  u32 u;
+							;  struct {
+							;    u8 unused;
+	min 				= 1		;    u8 min;
+	sec 				= 2		;    u8 sec;
+	frame 			= 3		;    u8 frame;
+							;  };
+							;};
+
+							;struct sector_mode1 {
+	synch 		= 0			;  u8 synch[12];
+	header 		= 12			;  struct header {
+	min 			= 12			;    u8 min;
+	sec 			= 13			;    u8 sec;
+	frame 		= 14			;    u8 frame;
+	mode 			= 15			;    u8 mode;
+							;  };
+	data 			= 16			;  u8 data[2048];
+	edc 			= 2064		;  u8 edc[288];
+							;};
+
+							;struct sector_mode2_form1 {
+	synch 		= 0			;  u8 synch[12];
+	header 		= 12			;  struct header {
+	min 			= 12			;    u8 min;
+	sec 			= 13			;    u8 sec;
+	frame 		= 14			;    u8 frame;
+	mode 			= 15			;    u8 mode;
+							;  };
+	subheader 		= 16			;  struct subheader {
+	min 			= 16			;    u8 fn;
+	sec 			= 17			;    u8 cn;
+	frame 		= 18			;    u8 sm;
+	mode 			= 19			;    u8 ci;
+	min 			= 20			;    u8 fn_;
+	sec 			= 21			;    u8 cn_;
+	frame 		= 22			;    u8 sm_;
+	mode 			= 23			;    u8 ci_;
+							;  };
+	data 			= 24			;  u8 data[2048];
+	edc 			= 2072		;  u8 edc[280];
+							;};
+
+							;struct sector_mode2_form2 {
+	synch 		= 0			;  u8 synch[12];
+	header 		= 12			;  struct header {
+	min 			= 12			;    u8 min;
+	sec 			= 13			;    u8 sec;
+	frame 		= 14			;    u8 frame;
+	mode 			= 15			;    u8 mode;
+							;  };
+	subheader 		= 16			;  struct subheader {
+	min 			= 16			;    u8 fn;
+	sec 			= 17			;    u8 cn;
+	frame 		= 18			;    u8 sm;
+	mode 			= 19			;    u8 ci;
+	min 			= 20			;    u8 fn_;
+	sec 			= 21			;    u8 cn_;
+	frame 		= 22			;    u8 sm_;
+	mode 			= 23			;    u8 ci_;
+							;  };
+	data 			= 24			;  u8 data[2324];
+	edc 			= 2348		;  u8 edc[4];
+							;};
 
 							;struct IP{
-	sys_id		= 0			;  struct sys_id{
+	sys_id		= 0			;  struct sys_id {
 	hw_id 		= 0			;    u8 hw_id[16];
 	maker_id 		= 16			;    u8 maker_id[16];
 	product 		= 32			;    u8 product[10];
