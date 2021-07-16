@@ -28,6 +28,12 @@
 	STAT_TRNS 			= 0x40
 	STAT_WAIT 			= 0x80
 
+
+	.org 0x06000224
+time_not_set:					;u32 time_not_set;
+	dc.l 	0x00000000
+
+
 	.org 0x06000234
 mem_set_func:					;void** mem_set_func;
 	dc.l 	0x00000000
@@ -37,8 +43,27 @@ mem_copy_param:					;u32** mem_copy_param;
 	dc.l 	0x00000000
 
 	.org 0x06000248 
-region_setting:					;u32 region_setting;
+region_setting:					;u32 region_setting;	//0x06000248
 	dc.l 	0x00000000
+master_msg:						;u32 master_msg;		//0x0600024C
+	dc.l 	0x00000000
+slave_main_func:					;void** slave_main_func;//0x06000250
+	dc.l 	0x06000646
+app_start_func:					;void** app_start_func;	//0x06000254
+	dc.l 	0x06000678
+
+
+	.org 0x060002C4
+master_main_func:					;void** master_main_func;
+	dc.l 	0x00000000
+
+
+	.org 0x06000324
+sys_clock_mode:					;u32 sys_clock_mode;
+	dc.l 	0x00000000
+sys_clock_change_func:				;void** sys_clock_change_func;
+	dc.l 	0x00000000
+
 
 
 	.org 0x06000340
