@@ -53,6 +53,12 @@ app_start_func:					;void** app_start_func;	//0x06000254
 	dc.l 	0x06000678
 
 
+	.org 0x0600026C
+player_exec_func:					;void** player_exec_func;
+	dc.l 	0x00000000
+
+
+
 	.org 0x060002C4
 master_main_func:					;void** master_main_func;
 	dc.l 	0x00000000
@@ -81,7 +87,8 @@ last_hirq:						;u16 last_hirq;
 	.org 0x060003A8
 cdb_report:						;u8 cdb_report[12];
 	dc.l 	0x00000000,0x00000000,0x00000000
-
+cdb_mpeg_report:					;u8 cdb_mpeg_report[12];
+	dc.l 	0x00000000,0x00000000,0x00000000
 
 	.org 0x06000A00
 int_handler_tbl:					;u32 int_handler_tbl[32];//0x06000A00

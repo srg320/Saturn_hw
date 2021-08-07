@@ -135,7 +135,7 @@ reset:
 000206 D633     	MOV.L   	@(#0CC,PC),R6	;
 000208 6012     	MOV.L   	@R1,R0		;
 00020A 376C     	ADD     	R6,R7			;
-00020C 4028     	SHLL16  	R0			;bool master = (SH2.BCR1 & 0x8000 == 0x0000);
+00020C 4028     	SHLL16  	R0			;bool master = (SH2.BSC.BCR1 & 0x8000 == 0x0000);
 00020E B133     	BRS     	L000478		;bsc_init(master);
 000210 4000     	SHLL    	R0			;
 000212 890A     	BT      	L00022A		;if (!master) return slave_start();
@@ -380,13 +380,14 @@ L0003BA:
 nmi:
 000420 D714     	MOV.L   	@(#050,PC),R7	;
 000422 7F08     	ADD     	#08,R15		;
+L000424:							;
 000424 D10D     	MOV.L   	@(#034,PC),R1	;
-000426 B013     	BRS     	L000452		;L000452();
+000426 B013     	BRS     	L000452		;(*0x060002DC)();
 000428 2F76     	MOV.L   	R7,@-R15		;
 00042A E0FF     	MOV     	#FF,R0		;
 00042C D30D     	MOV.L   	@(#034,PC),R3	;
 00042E E400     	MOV     	#00,R4		;
-000430 B04A     	BRS     	#0094			;
+000430 B04A     	BRS     	L0004C8		;sys_clock_change(0);
 000432 2302     	MOV.L   	R0,@R3		;
 000434 255A     	XOR     	R5,R5			;
 000436 D30D     	MOV.L   	@(#034,PC),R3	;
@@ -521,40 +522,40 @@ pon_nmi:							;
 000534 7F08     	ADD     	#08,R15		;
 000536 D41E     	MOV.L   	@(#078,PC),R4	;
 000538 E001     	MOV     	#01,R0		;
-00053A 2400     	MOV.B   	R0,@R4		;
+00053A 2400     	MOV.B   	R0,@R4		;SMPC.SF = 0x01;
 00053C E000     	MOV     	#00,R0		;
 00053E 2500     	MOV.B   	R0,@R5		;
 000540 6031     	MOV.W   	@R3,R0		;
 000542 4011     	CMP/PZ  	R0			;
-000544 89FC     	BT      	#1F8			;
+000544 89FC     	BT      	L000540 		;while (!(SH2.INTC.ICR & 0x8000));
 000546 200A     	XOR     	R0,R0			;
-000548 2100     	MOV.B   	R0,@R1		;
+000548 2100     	MOV.B   	R0,@R1		;SH2.SBYCR = 0x00;
 00054A D013     	MOV.L   	@(#04C,PC),R0	;
 00054C 911A     	MOV.W   	@(#034,PC),R1	;
-00054E 2202     	MOV.L   	R0,@R2		;
-000550 2311     	MOV.W   	R1,@R3		;
+00054E 2202     	MOV.L   	R0,@R2		;SH2.BSC.MCR = 0xA55A0078;
+000550 2311     	MOV.W   	R1,@R3		;SH2.INTC.ICR = 0x0001;
 000552 D119     	MOV.L   	@(#064,PC),R1	;
 000554 E001     	MOV     	#01,R0		;
-000556 2102     	MOV.L   	R0,@R1		;
+000556 2102     	MOV.L   	R0,@R1		;SCU.RSEL = 0x00000001;
 000558 D119     	MOV.L   	@(#064,PC),R1	;
 00055A 9214     	MOV.W   	@(#028,PC),R2	;
 00055C 9314     	MOV.W   	@(#028,PC),R3	;
-00055E 6012     	MOV.L   	@R1,R0		;
-000560 4210     	DT      	R2			;
-000562 8FFC     	BF/S    	#1F8			;
+00055E 6012     	MOV.L   	@R1,R0		;for (int i=0; i<0x400; i++)
+000560 4210     	DT      	R2			;  *(u32*)(0x26000000 + (i*0x400));
+000562 8FFC     	BF/S    	L00055E		;
 000564 313C     	ADD     	R3,R1			;
 000566 D115     	MOV.L   	@(#054,PC),R1	;
 000568 D316     	MOV.L   	@(#058,PC),R3	;
 00056A 6412     	MOV.L   	@R1,R4		;
 00056C 8532     	MOV.W   	@(#04,R3),R0	;
 00056E C804     	TST     	#04,R0		;
-000570 89FC     	BT      	#1F8			;
-000572 2341     	MOV.W   	R4,@R3		;
+000570 89FC     	BT      	L00056C		;while (!(VDP2.TVSTAT & 0x0004));
+000572 2341     	MOV.W   	R4,@R3		;VDP2.TVMD  = (u16)sys_clock_mode;
 000574 D10B     	MOV.L   	@(#02C,PC),R1	;
 000576 E081     	MOV     	#81,R0		;
-000578 2100     	MOV.B   	R0,@R1		;
+000578 2100     	MOV.B   	R0,@R1		;SH2.FRT.TIER = 0x81;
 00057A 000B     	RTS     				;
-00057C 460E     	LDC     	R6,SR			;
+00057C 460E     	LDC     	R6,SR			;//restore SR
 00057E A51D
 000580 00F0
 000582 8000
@@ -565,22 +566,18 @@ pon_nmi:							;
 00058C FFFFFE80
 000590 FFFFFE91
 000594 A55A007C
-000598 A55A
-00059A 0078
+000598 A55A0078
 00059C FFFFFEE0
 0005A0 FFFFFFEC
-0005A4 FFFF
-0005A6 FE10
+0005A4 FFFFFE10
 0005A8 20000000
 0005AC 2010001F
 0005B0 20100063
 0005B4 25FE00A8
-0005B8 25FE
-0005BA 00C4
+0005B8 25FE00C4
 0005BC 06000324
 0005C0 26000000
-0005C4 25F8
-0000
+0005C4 25F80000
 0005C8 FC0E
 0005CA 0272
 0005CC 7A3D
@@ -676,38 +673,38 @@ master_vector_tbl:					;u32 master_vector_tbl[128];
 	dc.l		0x0600094A				;Trap 61
 	dc.l		0x0600094A				;Trap 62
 	dc.l		0x0600094A				;Trap 63
-	dc.l		vblankin_int			;IRL0_1
-	dc.l		vblankout_int			;IRL2_3 
+	dc.l		vblank_in_int			;IRL0_1
+	dc.l		vblank_out_int			;IRL2_3 
 	dc.l		vblankin_int			;IRL4_5
-	dc.l		0x0600084C				;IRL6_7 timer 0
-	dc.l		0x06000852				;IRL8_9 timer 1
-	dc.l		0x06000858				;IRL10_11 DSP end
-	dc.l		0x0600085E				;IRL12_13 sound request
-	dc.l		0x06000864				;IRL14_15 system manager
-	dc.l		0x0600086A				;PAD
-	dc.l		0x06000870				;DMA2 end
-	dc.l		0x06000876				;DMA1 end
-	dc.l		0x0600087C				;DMA0 end
-	dc.l		0x06000882     			;DMA illegal
-	dc.l		0x06000888				;sprite draw end
+	dc.l		timer0_int				;IRL6_7
+	dc.l		timer1_int				;IRL8_9
+	dc.l		dsp_end_int				;IRL10_11
+	dc.l		sound_req_int			;IRL12_13
+	dc.l		sm_int				;IRL14_15
+	dc.l		pad_int				;PAD
+	dc.l		dsp_dma2_int			;DSP DMA2 end
+	dc.l		dsp_dma1_int			;DSP DMA1 end
+	dc.l		dsp_dma0_int			;DSP DMA0 end
+	dc.l		dsp_dma_ill_int     		;DSP DMA illegal
+	dc.l		vdp1_int				;sprite draw end
 	dc.l		0x0600094A				;
 	dc.l		0x0600094A				;
-	dc.l		0x0600088E				;external int 0
-	dc.l		0x06000894				;external int 1
-	dc.l		0x0600089A     			;external int 2
-	dc.l		0x060008A0     			;external int 3
-	dc.l		0x060008A6				;external int 4
-	dc.l		0x060008AC				;external int 5
-	dc.l		0x060008B2     			;external int 6
-	dc.l		0x060008B8				;external int 7
-	dc.l		0x060008BE				;external int 8
-	dc.l		0x060008C4				;external int 9
-	dc.l		0x060008CA     			;external int 10
-	dc.l		0x060008D0     			;external int 11
-	dc.l		0x060008D6				;external int 12
-	dc.l		0x060008DC				;external int 13
-	dc.l		0x060008E2     			;external int 14
-	dc.l		0x060008E8				;external int 15	
+	dc.l		abus_ext0_int			;external int 0
+	dc.l		abus_ext1_int			;external int 1
+	dc.l		abus_ext2_int			;external int 2
+	dc.l		abus_ext3_int			;external int 3
+	dc.l		abus_ext4_int			;external int 4
+	dc.l		abus_ext5_int			;external int 5
+	dc.l		abus_ext6_int			;external int 6
+	dc.l		abus_ext7_int			;external int 7
+	dc.l		abus_ext8_int			;external int 8
+	dc.l		abus_ext9_int			;external int 9
+	dc.l		abus_ext10_int			;external int 10
+	dc.l		abus_ext11_int			;external int 11
+	dc.l		abus_ext12_int			;external int 12
+	dc.l		abus_ext13_int			;external int 13
+	dc.l		abus_ext14_int			;external int 14
+	dc.l		abus_ext15_int			;external int 15	
 	dc.l		0x0600094A				;
 	dc.l		0x0600094A				;
 	dc.l		0x0600094A				;
@@ -1126,11 +1123,11 @@ L06000678:							;
 000C7C BD5E     	BRS     	#1ABC			;
 000C7E 9687     	MOV.W   	@(#10E,PC),R6	;
 
-LS06000680:							;master_main_run:
+L06000680:							;master_main_run:
 000C80 DF16     	MOV.L   	@(#058,PC),R15	;SH2.SP = 0x06002000;
-000C82 B04B     	BRS     	LS0600071C		;sh2_interrupt_init();
+000C82 B04B     	BRS     	L0600071C		;sh2_interrupt_init();
 000C84 E401     	MOV     	#01,R4		;
-000C86 B0D1     	BRS     	LS0600082C		;int_handlers_init();
+000C86 B0D1     	BRS     	L0600082C		;int_handlers_init();
 000C88 0009     	NOP     				;
 000C8A D116     	MOV.L   	@(#058,PC),R1	;
 000C8C A00D     	BRA     	L060006AA		;(*master_main_func)();//L06001120
@@ -1202,7 +1199,7 @@ L06000CB0:							;
 000D18 2010
 000D1A 0063     	
 
-LS0600071C:
+L0600071C:
 L000D1C:							;void sh2_interrupt_init()
 000D1C C70E     	MOVA    	@(#38,PC),R0	;
 000D1E 6303     	MOV     	R0,R3			;
@@ -1271,7 +1268,7 @@ L06000784:							;
 000D90 000B     	RTS     				;
 000D92 0456     	MOV.L   	R5,@(R0,R4)		;
 
-LS06000794:
+L06000794:
 L000D94:							;void set_int_handler(u8 n,u32* handler)
 000D94 4408     	SHLL2   	R4			;
 000D96 2558     	TST     	R5,R5			;
@@ -1369,122 +1366,149 @@ L0600083C:							;void empty_handler()
 000E3C 000B     	RTS     				;
 000E3E 0009     	NOP     				;
 
-L06000840:							;void vblankin_int()
+L06000840:							;void vblank_in_int()
 000E40 2F06     	MOV.L   	R0,@-R15		;
-000E42 A057     	BRA     	L000EF4		;
-000E44 E040     	MOV     	#40,R0		;return int_run(0x40);
+000E42 A057     	BRA     	L000EF4		;return int_run(0x40);
+000E44 E040     	MOV     	#40,R0		;
 
-L06000846:							;void vblankout_int()
+L06000846:							;void vblank_out_int()
 000E46 2F06     	MOV.L   	R0,@-R15		;
-000E48 A054     	BRA     	L000EF4		;
-000E4A E041     	MOV     	#41,R0		;return int_run(0x41);
+000E48 A054     	BRA     	L000EF4		;return int_run(0x41);
+000E4A E041     	MOV     	#41,R0		;
 
+L0600084C:							;void timer0_int()
 000E4C 2F06     	MOV.L   	R0,@-R15		;
-000E4E A051     	BRA     	L000EF4		;
+000E4E A051     	BRA     	L000EF4		;return int_run(0x43);
 000E50 E043     	MOV     	#43,R0		;
 
+L06000852:							;void timer1_int()
 000E52 2F06     	MOV.L   	R0,@-R15		;
-000E54 A04E     	BRA     	#009C			;
+000E54 A04E     	BRA     	L000EF4		;return int_run(0x44);
 000E56 E044     	MOV     	#44,R0		;
 
+L06000858:							;void dsp_end_int()
 000E58 2F06     	MOV.L   	R0,@-R15		;
-000E5A A04B     	BRA     	#0096			;
+000E5A A04B     	BRA     	L000EF4		;return int_run(0x45);
 000E5C E045     	MOV     	#45,R0		;
 
+L0600085E:							;void sound_req_int()
 000E5E 2F06     	MOV.L   	R0,@-R15		;
-000E60 A048     	BRA     	#0090			;
+000E60 A048     	BRA     	L000EF4		;return int_run(0x46);
 000E62 E046     	MOV     	#46,R0		;
 
+L06000864:							;void sm_int()
 000E64 2F06     	MOV.L   	R0,@-R15		;
-000E66 A045     	BRA     	#008A			;
+000E66 A045     	BRA     	L000EF4		;return int_run(0x47);
 000E68 E047     	MOV     	#47,R0		;
 
+L0600086A:							;void pad_int()
 000E6A 2F06     	MOV.L   	R0,@-R15		;
-000E6C A042     	BRA     	#0084			;
+000E6C A042     	BRA     	L000EF4		;return int_run(0x48);
 000E6E E048     	MOV     	#48,R0		;
 
+L06000870:							;void dsp_dma2_int()
 000E70 2F06     	MOV.L   	R0,@-R15		;
-000E72 A03F     	BRA     	#007E			;
+000E72 A03F     	BRA     	L000EF4		;return int_run(0x49);
 000E74 E049     	MOV     	#49,R0		;
 
+L06000876:							;void dsp_dma1_int()
 000E76 2F06     	MOV.L   	R0,@-R15		;
-000E78 A03C     	BRA     	#0078			;
+000E78 A03C     	BRA     	L000EF4		;return int_run(0x4A);
 000E7A E04A     	MOV     	#4A,R0		;
 
+L0600087C:							;void dsp_dma0_int()
 000E7C 2F06     	MOV.L   	R0,@-R15		;
-000E7E A039     	BRA     	#0072			;
+000E7E A039     	BRA     	L000EF4		;return int_run(0x4B);
 000E80 E04B     	MOV     	#4B,R0		;
 
+L06000882:							;void dsp_dma_ill_int()
 000E82 2F06     	MOV.L   	R0,@-R15		;
-000E84 A036     	BRA     	#006C			;
+000E84 A036     	BRA     	L000EF4		;return int_run(0x4C);
 000E86 E04C     	MOV     	#4C,R0		;
 
+L06000888:							;void vdp1_int()
 000E88 2F06     	MOV.L   	R0,@-R15		;
-000E8A A033     	BRA     	#0066			;
+000E8A A033     	BRA     	L000EF4		;return int_run(0x4D);
 000E8C E04D     	MOV     	#4D,R0		;
 
+L0600088E:							;void abus_ext0_int()
 000E8E 2F06     	MOV.L   	R0,@-R15		;
-000E90 A030     	BRA     	#0060			;
+000E90 A030     	BRA     	L000EF4		;return int_run(0x50);
 000E92 E050     	MOV     	#50,R0		;
 
+L06000894:							;void abus_ext1_int()
 000E94 2F06     	MOV.L   	R0,@-R15		;
-000E96 A02D     	BRA     	#005A			;
+000E96 A02D     	BRA     	L000EF4		;return int_run(0x51);
 000E98 E051     	MOV     	#51,R0		;
 
+L0600089A:							;void abus_ext2_int()
 000E9A 2F06     	MOV.L   	R0,@-R15		;
-000E9C A02A     	BRA     	#0054			;
+000E9C A02A     	BRA     	L000EF4		;return int_run(0x52);
 000E9E E052     	MOV     	#52,R0		;
 
+L060008A0:							;void abus_ext3_int()
 000EA0 2F06     	MOV.L   	R0,@-R15		;
-000EA2 A027     	BRA     	#004E			;
+000EA2 A027     	BRA     	#004E			;return int_run(0x53);
 000EA4 E053     	MOV     	#53,R0		;
 
+L060008A6:							;void abus_ext4_int()
 000EA6 2F06     	MOV.L   	R0,@-R15		;
-000EA8 A024     	BRA     	#0048			;
+000EA8 A024     	BRA     	#0048			;return int_run(0x54);
 000EAA E054     	MOV     	#54,R0		;
 
+L060008AC:							;void abus_ext5_int()
 000EAC 2F06     	MOV.L   	R0,@-R15		;
-000EAE A021     	BRA     	#0042			;
+000EAE A021     	BRA     	#0042			;return int_run(0x55);
 000EB0 E055     	MOV     	#55,R0		;
 
+L060008B2:							;void abus_ext6_int()
 000EB2 2F06     	MOV.L   	R0,@-R15		;
-000EB4 A01E     	BRA     	#003C			;
+000EB4 A01E     	BRA     	#003C			;return int_run(0x56);
 000EB6 E056     	MOV     	#56,R0		;
 
+L060008B8:							;void abus_ext7_int()
 000EB8 2F06     	MOV.L   	R0,@-R15		;
-000EBA A01B     	BRA     	#0036			;
+000EBA A01B     	BRA     	#0036			;return int_run(0x57);
 000EBC E057     	MOV     	#57,R0		;
 
+L060008BE:							;void abus_ext8_int()
 000EBE 2F06     	MOV.L   	R0,@-R15		;
-000EC0 A018     	BRA     	#0030			;
+000EC0 A018     	BRA     	#0030			;return int_run(0x58);
 000EC2 E058     	MOV     	#58,R0		;
 
+L060008C4:							;void abus_ext9_int()
 000EC4 2F06     	MOV.L   	R0,@-R15		;
-000EC6 A015     	BRA     	#002A			;
+000EC6 A015     	BRA     	#002A			;;return int_run(0x59);
 000EC8 E059     	MOV     	#59,R0		;
 
+L060008CA:							;void abus_ext10_int()
 000ECA 2F06     	MOV.L   	R0,@-R15		;
-000ECC A012     	BRA     	#0024			;
+000ECC A012     	BRA     	#0024			;;return int_run(0x5A);
 000ECE E05A     	MOV     	#5A,R0		;
 
+L060008D0:							;void abus_ext11_int()
 000ED0 2F06     	MOV.L   	R0,@-R15		;
-000ED2 A00F     	BRA     	#001E			;
+000ED2 A00F     	BRA     	#001E			;;return int_run(0x5B);
 000ED4 E05B     	MOV     	#5B,R0		;
 
+L060008D6:							;void abus_ext12_int()
 000ED6 2F06     	MOV.L   	R0,@-R15		;
-000ED8 A00C     	BRA     	#0018			;
+000ED8 A00C     	BRA     	#0018			;;return int_run(0x5C);
 000EDA E05C     	MOV     	#5C,R0		;
 
+L060008DC:							;void abus_ext13_int()
 000EDC 2F06     	MOV.L   	R0,@-R15		;
-000EDE A009     	BRA     	#0012			;
+000EDE A009     	BRA     	#0012			;;return int_run(0x5D);
 000EE0 E05D     	MOV     	#5D,R0		;
 
+L060008E2:							;void abus_ext14_int()
 000EE2 2F06     	MOV.L   	R0,@-R15		;
-000EE4 A006     	BRA     	#000C			;
+000EE4 A006     	BRA     	#000C			;;return int_run(0x5E);
 000EE6 E05E     	MOV     	#5E,R0		;
 
+L060008E8:							;void abus_ext15_int()
 000EE8 2F06     	MOV.L   	R0,@-R15		;
-000EEA A003     	BRA     	#0006			;
+000EEA A003     	BRA     	#0006			;;return int_run(0x5F);
 000EEC E05F     	MOV     	#5F,R0		;
 000EEE 0009     	NOP     				;
 
@@ -1492,7 +1516,7 @@ L060008F0:							;void vblankin_int()
 000EF0 2F06     	MOV.L   	R0,@-R15		;
 000EF2 E042     	MOV     	#42,R0		;return int_run(0x42);
 
-L000EF4:							;void int_run(n)//n-R0
+L060008F4:							;void int_run(n)//n-R0
 000EF4 2F16     	MOV.L   	R1,@-R15		;
 000EF6 D118     	MOV.L   	@(#060,PC),R1	;
 000EF8 2F26     	MOV.L   	R2,@-R15		;
@@ -1829,7 +1853,7 @@ L00119E:
 0011CC 6012     	MOV.L   	@R1,R0		;
 0011CE 8800     	CMP/EQ  	#00,R0		;
 0011D0 8B02     	BF      	L0011D8		;if (master_msg == 0)
-0011D2 450B     	JSR     	@R5			;  cdb_init();
+0011D2 450B     	JSR     	@R5			;  cdb_hw_init();
 0011D4 2F06     	MOV.L   	R0,@-R15		;
 0011D6 60F6     	MOV.L   	@R15+,R0		;
 L0011D8:
@@ -2474,7 +2498,7 @@ L001800:							;void scu_init()
 00186A 0000     	
 00186C D755     	MOV.L   	@(#154,PC),R7	;
 00186E D153     	MOV.L   	@(#14C,PC),R1	;
-001870 412B     	JMP     	@R1			;
+001870 412B     	JMP     	@R1			;goto L000424;
 001872 0009     	NOP     				;
 
 L001874:							;
@@ -2505,6 +2529,7 @@ L001874:							;
 0018A4 8FEC     	BF/S    	#1D8			;
 0018A6 200A     	XOR     	R0,R0			;
 
+L0018A8:							;
 0018A8 D348     	MOV.L   	@(#120,PC),R3	;
 0018AA E003     	MOV     	#03,R0		;
 0018AC 4F22     	STS.L   	PR,@-R15		;
@@ -2573,12 +2598,13 @@ L001912:							;
 00191A 410B     	JSR     	@R1			;L00214A();
 00191C 6532     	MOV.L   	@R3,R5		;
 00191E 2008     	TST     	R0,R0			;
-001920 8B04     	BF      	#008			;
+001920 8B04     	BF      	L00192C		;
 001922 8900     	BT      	#000			;
 001924 E0FF     	MOV     	#FF,R0		;
 001926 4F26     	LDS.L   	@R15+,PR		;
 001928 000B     	RTS     				;
 00192A 0009     	NOP     				;
+L00192C:
 00192C D32C     	MOV.L   	@(#0B0,PC),R3	;
 00192E 4015     	CMP/PL  	R0			;
 001930 8BF8     	BF      	#1F0			;
@@ -2649,8 +2675,7 @@ L001912:							;
 0019B6 26A8
 0019B8 0000     	
 0019BA 214A
-0019BC 0000     	
-0019BE 0424
+0019BC 00000424
 0019C0 00000444
 0019C4 4843     	
 0019C6 444D     	
@@ -3041,7 +3066,7 @@ L001AD4:
 001CE4 0600
 001CE6 2D80
 
-L001CE8:							;bool cdb_init() 
+L001CE8:							;bool cdb_hw_init() 
 001CE8 2FE6     	MOV.L   	R14,@-R15		;
 001CEA 2FD6     	MOV.L   	R13,@-R15		;
 001CEC 2FC6     	MOV.L   	R12,@-R15		;
@@ -3318,6 +3343,8 @@ L001D96:
 001EFC 6DF6     	MOV.L   	@R15+,R13		;
 001EFE 000B     	RTS     				;
 001F00 6EF6     	MOV.L   	@R15+,R14		;
+
+L001F02:							;int cdb_init(bool arg1)//arg1-R4
 001F02 2FE6     	MOV.L   	R14,@-R15		;
 001F04 2FD6     	MOV.L   	R13,@-R15		;
 001F06 2FC6     	MOV.L   	R12,@-R15		;
@@ -3328,75 +3355,77 @@ L001D96:
 001F10 DC16     	MOV.L   	@(#058,PC),R12	;
 001F12 9E24     	MOV.W   	@(#048,PC),R14	;
 001F14 2448     	TST     	R4,R4			;
-001F16 8914     	BT      	#028			;
-001F18 65F3     	MOV     	R15,R5		;
-001F1A B5B8     	BRS     	#0B70			;
+001F16 8914     	BT      	L001F42		;if (arg1) {
+001F18 65F3     	MOV     	R15,R5		;  u8 cd_stat;
+001F1A B5B8     	BRS     	L002A8E		;  int ret = cdb_get_status(0,&cd_stat);//L002A8E
 001F1C E400     	MOV     	#00,R4		;
 001F1E 6D03     	MOV     	R0,R13		;
 001F20 2DD8     	TST     	R13,R13		;
-001F22 8B09     	BF      	#012			;
+001F22 8B09     	BF      	L001F38		;  if (!ret) {
 001F24 E700     	MOV     	#00,R7		;
 001F26 D30F     	MOV.L   	@(#03C,PC),R3	;
 001F28 6673     	MOV     	R7,R6			;
 001F2A 6573     	MOV     	R7,R5			;
-001F2C 430B     	JSR     	@R3			;
+001F2C 430B     	JSR     	@R3			;    ret = cdb_init_cd_system_cmd(0,0,0,0);//L002ECE
 001F2E 6473     	MOV     	R7,R4			;
 001F30 2008     	TST     	R0,R0			;
-001F32 8906     	BT      	#00C			;
-001F34 A034     	BRA     	#0068			;
-001F36 E0EC     	MOV     	#EC,R0		;
-001F38 60D3     	MOV     	R13,R0		;
+001F32 8906     	BT      	L001F42		;
+001F34 A034     	BRA     	L001FA0		;    if (ret) return 0xFFFFFFEC;
+001F36 E0EC     	MOV     	#EC,R0		;  }
+L001F38:
+001F38 60D3     	MOV     	R13,R0		;  else if (ret != 0xFFFFFFFE) {
 001F3A 88FE     	CMP/EQ  	#FE,R0		;
-001F3C 8901     	BT      	#002			;
-001F3E A02F     	BRA     	#005E			;
-001F40 60D3     	MOV     	R13,R0		;
-001F42 B034     	BRS     	#0068			;
+001F3C 8901     	BT      	L001F42		;
+001F3E A02F     	BRA     	L001FA0		;    return ret;
+001F40 60D3     	MOV     	R13,R0		;  }
+L001F42:							;}
+001F42 B034     	BRS     	L001FAE		;cdb_sys_init(0);//L001FAE
 001F44 E400     	MOV     	#00,R4		;
 001F46 ED00     	MOV     	#00,R13		;
-001F48 E500     	MOV     	#00,R5		;
-001F4A 4B0B     	JSR     	@R11			;
+L001F48:
+001F48 E500     	MOV     	#00,R5		;for (int i=0; i<660000; i++) {
+001F4A 4B0B     	JSR     	@R11			;  ret = cdb_reset_selector_cmd(0xFC,0);//L00351C
 001F4C 64E3     	MOV     	R14,R4		;
 001F4E 6403     	MOV     	R0,R4			;
 001F50 2448     	TST     	R4,R4			;
-001F52 8B0F     	BF      	#01E			;
+001F52 8B0F     	BF      	L001F74		;  if (!ret) {
 001F54 D506     	MOV.L   	@(#018,PC),R5	;
-001F56 B56E     	BRS     	#0ADC			;
+001F56 B56E     	BRS     	L002A36		;    ret = cdb_wait_hirq(HIRQ_ESEL,2900000);//L002A36
 001F58 E440     	MOV     	#40,R4		;
-001F5A A018     	BRA     	#0030			;
-001F5C 6D03     	MOV     	R0,R13		;
+001F5A A018     	BRA     	L001F8E		;    break;
+001F5C 6D03     	MOV     	R0,R13		;  }
 001F5E 00FC
 001F60 0001     	
 001F62 5F90
-001F64 0000     	
-001F66 2ECE
-001F68 0000     	
-001F6A 351C
-001F6C 000A
-001F6E 1220
-001F70 002C
-001F72 4020
+001F64 00002ECE
+001F68 0000351C
+001F6C 000A1220
+001F70 002C4020
+L001F74:
 001F74 6043     	MOV     	R4,R0			;
 001F76 88FF     	CMP/EQ  	#FF,R0		;
 001F78 8901     	BT      	#002			;
-001F7A A011     	BRA     	#0022			;
+001F7A A011     	BRA     	L001FA0		;  if (ret != 0xFFFFFFFF) return ret;
 001F7C E0EB     	MOV     	#EB,R0		;
 001F7E 63D3     	MOV     	R13,R3		;
 001F80 33C7     	CMP/GT 	R12,R3		;
-001F82 8F02     	BF/S    	#004			;
+001F82 8F02     	BF/S    	L001F8A		;
 001F84 7D01     	ADD     	#01,R13		;
-001F86 A00B     	BRA     	#0016			;
+001F86 A00B     	BRA     	L001FA0		;
 001F88 E0EA     	MOV     	#EA,R0		;
-001F8A AFDD     	BRA     	#1FBA			;
-001F8C 0009     	NOP     				;
+001F8A AFDD     	BRA     	L001F48		;
+001F8C 0009     	NOP     				;}
+L001F8E:
 001F8E 2DD8     	TST     	R13,R13		;
 001F90 8901     	BT      	#002			;
-001F92 A005     	BRA     	#000A			;
+001F92 A005     	BRA     	L001FA0		;if (ret) return ret;
 001F94 E0E9     	MOV     	#E9,R0		;
 001F96 9421     	MOV.W   	@(#042,PC),R4	;
 001F98 D311     	MOV.L   	@(#044,PC),R3	;
-001F9A 430B     	JSR     	@R3			;
+001F9A 430B     	JSR     	@R3			;cdb_ack_hirq(HIRQ_MPED|HIRQ_EFLS|HIRQ_ECPY|HIRQ_EHST|HIRQ_ESEL|HIRQ_DCHG|HIRQ_CMOK);//L003C38
 001F9C 0009     	NOP     				;
-001F9E 60D3     	MOV     	R13,R0		;
+001F9E 60D3     	MOV     	R13,R0		;return 0;
+L001FA0:
 001FA0 7F04     	ADD     	#04,R15		;
 001FA2 4F26     	LDS.L   	@R15+,PR		;
 001FA4 6BF6     	MOV.L   	@R15+,R11		;
@@ -3404,51 +3433,52 @@ L001D96:
 001FA8 6DF6     	MOV.L   	@R15+,R13		;
 001FAA 000B     	RTS     				;
 001FAC 6EF6     	MOV.L   	@R15+,R14		;
+
+L001FAE:							;int cdb_sys_init(u32 param)//param-R4
 001FAE 4F22     	STS.L   	PR,@-R15		;
 001FB0 7FF0     	ADD     	#F0,R15		;
 001FB2 D30C     	MOV.L   	@(#030,PC),R3	;
-001FB4 430B     	JSR     	@R3			;
+001FB4 430B     	JSR     	@R3			;int ret = cdb_abort_file_cmd();//L003BEE
 001FB6 1F43     	MOV.L   	R4,@(#C,R15)	;
 001FB8 6403     	MOV     	R0,R4			;
 001FBA 2448     	TST     	R4,R4			;
-001FBC 8903     	BT      	#006			;
+001FBC 8903     	BT      	L001FC6		;if (ret) return 0xFFFFFFE7;
 001FBE 7F10     	ADD     	#10,R15		;
 001FC0 4F26     	LDS.L   	@R15+,PR		;
 001FC2 000B     	RTS     				;
 001FC4 E0E7     	MOV     	#E7,R0		;
+L001FC6:
 001FC6 940A     	MOV.W   	@(#014,PC),R4	;
 001FC8 D507     	MOV.L   	@(#01C,PC),R5	;
-001FCA B534     	BRS     	#0A68			;
+001FCA B534     	BRS     	L002A36		;ret = cdb_wait_hirq(HIRQ_EFLS,2900000);
 001FCC 0009     	NOP     				;
 001FCE 2F02     	MOV.L   	R0,@R15		;
 001FD0 2008     	TST     	R0,R0			;
-001FD2 890B     	BT      	#016			;
+001FD2 890B     	BT      	L001FEC		;if (ret) return 0xFFFFFFE6;
 001FD4 7F10     	ADD     	#10,R15		;
 001FD6 4F26     	LDS.L   	@R15+,PR		;
 001FD8 000B     	RTS     				;
 001FDA E0E6     	MOV     	#E6,R0		;
 001FDC 0BE1     	
 001FDE 0200     	
-001FE0 0000     	
-001FE2 3C38
-001FE4 0000     	
-001FE6 3BEE
-001FE8 002C
-001FEA 4020
+001FE0 00003C38
+001FE4 00003BEE
+001FE8 002C4020
+L001FEC:
 001FEC 953C     	MOV.W   	@(#078,PC),R5	;
-001FEE B522     	BRS     	#0A44			;
+001FEE B522     	BRS     	L002A36		;ret = cdb_wait_hirq(HIRQ_EFLS,700);
 001FF0 E402     	MOV     	#02,R4		;
 001FF2 D420     	MOV.L   	@(#080,PC),R4	;
 001FF4 D320     	MOV.L   	@(#080,PC),R3	;
-001FF6 430B     	JSR     	@R3			;
+001FF6 430B     	JSR     	@R3			;cdb_ack_hirq(0xFFFD);//L003C38
 001FF8 0009     	NOP     				;
 001FFA 64F3     	MOV     	R15,R4		;
 001FFC D31F     	MOV.L   	@(#07C,PC),R3	;
-001FFE 430B     	JSR     	@R3			;ret = L002FFC();
+001FFE 430B     	JSR     	@R3			;ret = cdb_end_data_transfer_cmd(u32* twn);//L002FFC
 002000 7408     	ADD     	#08,R4		;
 002002 6403     	MOV     	R0,R4			;
 002004 2448     	TST     	R4,R4			;
-002006 8903     	BT      	L002010		;ret == 0
+002006 8903     	BT      	L002010		;if (ret) return 0xFFFFFFE5;
 002008 7F10     	ADD     	#10,R15		;
 00200A 4F26     	LDS.L   	@R15+,PR		;
 00200C 000B     	RTS     				;
@@ -3456,47 +3486,50 @@ L001D96:
 L002010:
 002010 952B     	MOV.W   	@(#056,PC),R5	;
 002012 942B     	MOV.W   	@(#056,PC),R4	;
-002014 B50F     	BRS     	L002A36		;L002A36();
+002014 B50F     	BRS     	L002A36		;cdb_wait_hirq(HIRQ_EHST,4000);//L002A36
 002016 0009     	NOP     				;
-002018 B036     	BRS     	#006C			;
+002018 B036     	BRS     	L002088		;ret = cdb_check_init_hardware(param);//L002088
 00201A 54F3     	MOV.L   	@(#0C,R15),R4	;
 00201C 6403     	MOV     	R0,R4			;
 00201E 2448     	TST     	R4,R4			;
-002020 8903     	BT      	#006			;
+002020 8903     	BT      	L00202A		;if (ret) return ret;
 002022 7F10     	ADD     	#10,R15		;
 002024 4F26     	LDS.L   	@R15+,PR		;
 002026 000B     	RTS     				;
 002028 6043     	MOV     	R4,R0			;
+L00202A:
 00202A 64F3     	MOV     	R15,R4		;
-00202C D314     	MOV.L   	@(#050,PC),R3	;
-00202E 430B     	JSR     	@R3			;
+00202C D314     	MOV.L   	@(#050,PC),R3	;u32 err;
+00202E 430B     	JSR     	@R3			;ret = cdb_get_copy_error_cmd(&err);//L003A1C
 002030 7404     	ADD     	#04,R4		;
 002032 6403     	MOV     	R0,R4			;
 002034 2448     	TST     	R4,R4			;
-002036 8903     	BT      	#006			;
+002036 8903     	BT      	L002040		;if (ret) return 0xFFFFFFE4;
 002038 7F10     	ADD     	#10,R15		;
 00203A 4F26     	LDS.L   	@R15+,PR		;
 00203C 000B     	RTS     				;
 00203E E0E4     	MOV     	#E4,R0		;
+L002040:
 002040 53F1     	MOV.L   	@(#04,R15),R3	;
 002042 9214     	MOV.W   	@(#028,PC),R2	;
 002044 3320     	CMP/EQ 	R2,R3			;
-002046 8B0A     	BF      	#014			;
+002046 8B0A     	BF      	L00205E		;if (err != 0xFF) {
 002048 9412     	MOV.W   	@(#024,PC),R4	;
 00204A D50E     	MOV.L   	@(#038,PC),R5	;
-00204C B4F3     	BRS     	#09E6			;
+00204C B4F3     	BRS     	L002A36		;  ret = cdb_wait_hirq(HIRQ_EHST,2900000);//L002A36
 00204E 0009     	NOP     				;
 002050 2F02     	MOV.L   	R0,@R15		;
 002052 2008     	TST     	R0,R0			;
-002054 8903     	BT      	#006			;
+002054 8903     	BT      	L00205E		;  if (ret) return 0xFFFFFFE3;
 002056 7F10     	ADD     	#10,R15		;
 002058 4F26     	LDS.L   	@R15+,PR		;
 00205A 000B     	RTS     				;
-00205C E0E3     	MOV     	#E3,R0		;
+00205C E0E3     	MOV     	#E3,R0		;}
+L00205E:
 00205E E000     	MOV     	#00,R0		;
 002060 7F10     	ADD     	#10,R15		;
 002062 4F26     	LDS.L   	@R15+,PR		;
-002064 000B     	RTS     				;
+002064 000B     	RTS     				;return 0;
 002066 0009     	NOP     				;
 002068 02BC
 00206A 0FA0
@@ -3504,97 +3537,101 @@ L002010:
 00206E 00FF
 002070 0100
 002072 094F
-002074 0000
-002076 FFFD
-002078 0000
-00207A 3C38
+002074 0000FFFD
+002078 00003C38
 00207C 00002FFC
-002080 0000
-002082 3A1C
-002084 002C
-002086 4020
+002080 00003A1C
+002084 002C4020
+
+L002088:							;int cdb_check_init_hardware(u32 param)//param-R4
 002088 4F22     	STS.L   	PR,@-R15		;
 00208A 7FF4     	ADD     	#F4,R15		;
 00208C 2F42     	MOV.L   	R4,@R15		;
 00208E 64F3     	MOV     	R15,R4		;
-002090 D31C     	MOV.L   	@(#070,PC),R3	;
-002092 430B     	JSR     	@R3			;
+002090 D31C     	MOV.L   	@(#070,PC),R3	;u8 hw_info[8];
+002092 430B     	JSR     	@R3			;int ret = cdb_get_hardware_info_cmd(hw_info);//L002DD0
 002094 7404     	ADD     	#04,R4		;
 002096 6403     	MOV     	R0,R4			;
 002098 2448     	TST     	R4,R4			;
-00209A 8903     	BT      	#006			;
+00209A 8903     	BT      	L0020A4		;if (ret) return 0xFFFFFFE2;
 00209C 7F0C     	ADD     	#0C,R15		;
 00209E 4F26     	LDS.L   	@R15+,PR		;
 0020A0 000B     	RTS     				;
 0020A2 E0E2     	MOV     	#E2,R0		;
-0020A4 A019     	BRA     	#0032			;
+L0020A4:
+0020A4 A019     	BRA     	L0020DA		;
 0020A6 60F2     	MOV.L   	@R15,R0		;
-0020A8 60F3     	MOV     	R15,R0		;
+L0020A8:
+0020A8 60F3     	MOV     	R15,R0		;if (param == 0x01) {
 0020AA 7004     	ADD     	#04,R0		;
 0020AC 6000     	MOV.B   	@R0,R0		;
 0020AE 600C     	EXTU.B   	R0,R0			;
 0020B0 C802     	TST     	#02,R0		;
-0020B2 8B16     	BF      	#02C			;
+0020B2 8B16     	BF      	L0020E2		;  if (hw_info[0] & 0x02 == 0) return 0xFFFFFFE1;
 0020B4 7F0C     	ADD     	#0C,R15		;
 0020B6 4F26     	LDS.L   	@R15+,PR		;
 0020B8 000B     	RTS     				;
-0020BA E0E1     	MOV     	#E1,R0		;
-0020BC 62F3     	MOV     	R15,R2		;
+0020BA E0E1     	MOV     	#E1,R0		;}
+L0020BC:
+0020BC 62F3     	MOV     	R15,R2		;else if (param == 0x02) {
 0020BE 7204     	ADD     	#04,R2		;
 0020C0 8422     	MOV.B   	@(#02,R2),R0	;
 0020C2 6303     	MOV     	R0,R3			;
 0020C4 633C     	EXTU.B   	R3,R3			;
 0020C6 4315     	CMP/PL  	R3			;
-0020C8 8903     	BT      	#006			;
+0020C8 8903     	BT      	L0020D2		;  if (hw_info[2] == 0x00) return 0xFFFFFFE0;
 0020CA 7F0C     	ADD     	#0C,R15		;
 0020CC 4F26     	LDS.L   	@R15+,PR		;
 0020CE 000B     	RTS     				;
 0020D0 E0E0     	MOV     	#E0,R0		;
-0020D2 7F0C     	ADD     	#0C,R15		;
+L0020D2:
+0020D2 7F0C     	ADD     	#0C,R15		;  
 0020D4 4F26     	LDS.L   	@R15+,PR		;
-0020D6 000B     	RTS     				;
-0020D8 E000     	MOV     	#00,R0		;
+0020D6 000B     	RTS     				;  return 0;
+0020D8 E000     	MOV     	#00,R0		;}
+L0020DA:							;
 0020DA 8801     	CMP/EQ  	#01,R0		;
-0020DC 89E4     	BT      	#1C8			;
+0020DC 89E4     	BT      	L0020A8		;
 0020DE 8802     	CMP/EQ  	#02,R0		;
-0020E0 89EC     	BT      	#1D8			;
+0020E0 89EC     	BT      	L0020BC		;
+L0020E2:
 0020E2 62F3     	MOV     	R15,R2		;
 0020E4 7204     	ADD     	#04,R2		;
 0020E6 8422     	MOV.B   	@(#02,R2),R0	;
 0020E8 6303     	MOV     	R0,R3			;
 0020EA 633C     	EXTU.B   	R3,R3			;
 0020EC 4315     	CMP/PL  	R3			;
-0020EE 8B18     	BF      	#030			;
+0020EE 8B18     	BF      	L002122		;if (hw_info[2] == 0x00) return 0;
 0020F0 D305     	MOV.L   	@(#014,PC),R3	;
-0020F2 430B     	JSR     	@R3			;
+0020F2 430B     	JSR     	@R3			;ret = cdb_mpeg_init(0);//L004120
 0020F4 E400     	MOV     	#00,R4		;
 0020F6 6403     	MOV     	R0,R4			;
 0020F8 2448     	TST     	R4,R4			;
-0020FA 8907     	BT      	#00E			;
+0020FA 8907     	BT      	#00E			;if (ret) return 0xFFFFFFDF;
 0020FC 7F0C     	ADD     	#0C,R15		;
 0020FE 4F26     	LDS.L   	@R15+,PR		;
 002100 000B     	RTS     				;
 002102 E0DF     	MOV     	#DF,R0		;
-002104 0000     	
-002106 2DD0
-002108 0000     	
-00210A 4120
+002104 00002DD0
+002108 00004120
 00210C 942D     	MOV.W   	@(#05A,PC),R4	;
 00210E D517     	MOV.L   	@(#05C,PC),R5	;
-002110 B491     	BRS     	#0922			;
+002110 B491     	BRS     	L002A36		;ret = cdb_wait_hirq(HIRQ_MPED,2900000);//L002A36
 002112 0009     	NOP     				;
 002114 2F02     	MOV.L   	R0,@R15		;
 002116 2008     	TST     	R0,R0			;
-002118 8903     	BT      	#006			;
+002118 8903     	BT      	L002122		;if (ret) return 0xFFFFFFDE;
 00211A 7F0C     	ADD     	#0C,R15		;
 00211C 4F26     	LDS.L   	@R15+,PR		;
 00211E 000B     	RTS     				;
 002120 E0DE     	MOV     	#DE,R0		;
+L002122:
 002122 E000     	MOV     	#00,R0		;
 002124 7F0C     	ADD     	#0C,R15		;
 002126 4F26     	LDS.L   	@R15+,PR		;
-002128 000B     	RTS     				;
+002128 000B     	RTS     				;return 0;
 00212A 0009     	NOP     				;
+
 00212C 4F22     	STS.L   	PR,@-R15		;
 00212E D310     	MOV.L   	@(#040,PC),R3	;
 002130 430B     	JSR     	@R3			;
@@ -3611,7 +3648,7 @@ L002010:
 002146 000B     	RTS     				;
 002148 0009     	NOP     				;
 
-L00214A:							;
+L00214A:							;int cdb_get_boot_data(u32* buf,u32 lba)//buf-R4,lba-R5
 00214A 2FE6     	MOV.L   	R14,@-R15		;
 00214C 2FD6     	MOV.L   	R13,@-R15		;
 00214E 4F22     	STS.L   	PR,@-R15		;
@@ -3619,71 +3656,76 @@ L00214A:							;
 002152 2F52     	MOV.L   	R5,@R15		;
 002154 DE07     	MOV.L   	@(#01C,PC),R14	;
 002156 2448     	TST     	R4,R4			;
-002158 8F14     	BF/S    	#028			;
+002158 8F14     	BF/S    	L002184		;if (buf == 0) {
 00215A ED00     	MOV     	#00,R13		;
-00215C BED1     	BRS     	#1DA2			;
+00215C BED1     	BRS     	L001F02		;  int ret = cdb_init(1);
 00215E E401     	MOV     	#01,R4		;
 002160 6403     	MOV     	R0,R4			;
 002162 2448     	TST     	R4,R4			;
-002164 8908     	BT      	#010			;
-002166 A02C     	BRA     	#0058			;
+002164 8908     	BT      	L002178		;
+002166 A02C     	BRA     	L0021C2		;  if (ret) return ret;
 002168 6043     	MOV     	R4,R0			;
 00216A 0800
-00216C 002C
-00216E 4020
+00216C 002C4020
 002170 0000
 002172 3FBC
-002174 0600
-002176 0380
-002178 B028     	BRS     	#0050			;
+002174 06000380
+L002178:
+002178 B028     	BRS     	L0021CC		;  ret = cdb_ack_hirq(0x0000);//L0021CC
 00217A E400     	MOV     	#00,R4		;
 00217C 6403     	MOV     	R0,R4			;
-00217E 6DDF     	EXTS.W   	R13,R13		;
-002180 A01E     	BRA     	#003C			;
-002182 2ED1     	MOV.W   	R13,@R14		;
+00217E 6DDF     	EXTS.W   	R13,R13		;  *(u16)0x06000380 = 0x0000;
+002180 A01E     	BRA     	L0021C0		;  return ret;
+002182 2ED1     	MOV.W   	R13,@R14		;}
+L002184:
 002184 62E1     	MOV.W   	@R14,R2		;
 002186 2228     	TST     	R2,R2			;
-002188 8B11     	BF      	#022			;
-00218A B0B5     	BRS     	#016A			;
+002188 8B11     	BF      	L0021AE		;if (*(u16)0x06000380 == 0) {
+00218A B0B5     	BRS     	L0022F8		;  int ret = cdb_check_fs();//L0022F8
 00218C 0009     	NOP     				;
 00218E 6403     	MOV     	R0,R4			;
 002190 4415     	CMP/PL  	R4			;
 002192 8901     	BT      	#002			;
-002194 A015     	BRA     	#002A			;
+002194 A015     	BRA     	L0021C2		;  if (ret < 0) return ret; 
 002196 6043     	MOV     	R4,R0			;
-002198 B0DD     	BRS     	#01BA			;
+002198 B0DD     	BRS     	L002356		;  ret = cdb_read_boot(lba);//L002356
 00219A 64F2     	MOV.L   	@R15,R4		;
 00219C 6403     	MOV     	R0,R4			;
 00219E 2448     	TST     	R4,R4			;
 0021A0 8901     	BT      	#002			;
-0021A2 A00E     	BRA     	#001C			;
+0021A2 A00E     	BRA     	L0021C2		;  if (ret) return ret;
 0021A4 6043     	MOV     	R4,R0			;
 0021A6 E301     	MOV     	#01,R3		;
 0021A8 2E31     	MOV.W   	R3,@R14		;
-0021AA A009     	BRA     	#0012			;
-0021AC 64D3     	MOV     	R13,R4		;
-0021AE B16B     	BRS     	L002488		;L002488();
+0021AA A009     	BRA     	L0021C0		;  return 0;
+0021AC 64D3     	MOV     	R13,R4		;}
+L0021AE:							;else {
+0021AE B16B     	BRS     	L002488		;  ret = cdb_get_boot_data(buf);//L002488
 0021B0 0009     	NOP     				;
 0021B2 6403     	MOV     	R0,R4			;
 0021B4 4415     	CMP/PL  	R4			;
 0021B6 8901     	BT      	#002			;
-0021B8 A003     	BRA     	#0006			;
+0021B8 A003     	BRA     	L0021C2		;  if (ret < 0) return ret; 
 0021BA 6043     	MOV     	R4,R0			;
 0021BC 6DDF     	EXTS.W   	R13,R13		;
-0021BE 2ED1     	MOV.W   	R13,@R14		;
-0021C0 6043     	MOV     	R4,R0			;
+0021BE 2ED1     	MOV.W   	R13,@R14		;  *(u16)0x06000380 = 0x0000;
+L0021C0:							;  return ret;
+0021C0 6043     	MOV     	R4,R0			;}
+L0021C2:
 0021C2 7F04     	ADD     	#04,R15		;
 0021C4 4F26     	LDS.L   	@R15+,PR		;
 0021C6 6DF6     	MOV.L   	@R15+,R13		;
 0021C8 000B     	RTS     				;
 0021CA 6EF6     	MOV.L   	@R15+,R14		;
+
+L0021CC:							;
 0021CC 4F22     	STS.L   	PR,@-R15		;
 0021CE 900F     	MOV.W   	@(#01E,PC),R0	;
 0021D0 3F0C     	ADD     	R0,R15		;
 0021D2 1F42     	MOV.L   	R4,@(#8,R15)	;
 0021D4 D407     	MOV.L   	@(#01C,PC),R4	;
 0021D6 D308     	MOV.L   	@(#020,PC),R3	;
-0021D8 430B     	JSR     	@R3			;
+0021D8 430B     	JSR     	@R3			;L003C38
 0021DA 0009     	NOP     				;
 0021DC BE2B     	BRS     	#1C56			;
 0021DE 0009     	NOP     				;
@@ -3699,8 +3741,7 @@ L00214A:							;
 0021F2 01A4
 0021F4 0000     	
 0021F6 FFDF     	
-0021F8 0000     	
-0021FA 3C38
+0021F8 00003C38
 0021FC 64F3     	MOV     	R15,R4		;
 0021FE D31D     	MOV.L   	@(#074,PC),R3	;
 002200 430B     	JSR     	@R3			;ret = L002E22();
@@ -3769,72 +3810,76 @@ L002264:
 002278 40000000
 00227C 00003E74
 
-L002280:
+L002280:							;int cdb_get_session0_info(u8* tno,u32* fad)
 002280 4F22     	STS.L   	PR,@-R15		;
 002282 7FF4     	ADD     	#F4,R15		;
 002284 1F41     	MOV.L   	R4,@(#4,R15)	;
 002286 1F52     	MOV.L   	R5,@(#8,R15)	;
 002288 65F3     	MOV     	R15,R5		;
-00228A D319     	MOV.L   	@(#064,PC),R3	;
-00228C 430B     	JSR     	@R3			;L002E88();
+00228A D319     	MOV.L   	@(#064,PC),R3	;u32 session_info;
+00228C 430B     	JSR     	@R3			;int ret = cdb_get_session_info_cmd(0,&session_info);//L002E88
 00228E E400     	MOV     	#00,R4		;
 002290 6403     	MOV     	R0,R4			;
 002292 2448     	TST     	R4,R4			;
-002294 8903     	BT      	#006			;
+002294 8903     	BT      	L00229E		;if (ret) return 0xFFFFFFD3;
 002296 7F0C     	ADD     	#0C,R15		;
 002298 4F26     	LDS.L   	@R15+,PR		;
 00229A 000B     	RTS     				;
 00229C E0D3     	MOV     	#D3,R0		;
+L00229E:
 00229E 64F3     	MOV     	R15,R4		;
 0022A0 D313     	MOV.L   	@(#04C,PC),R3	;
 0022A2 6440     	MOV.B   	@R4,R4		;
 0022A4 644C     	EXTU.B   	R4,R4			;
-0022A6 430B     	JSR     	@R3			;
+0022A6 430B     	JSR     	@R3			;ret = cdb_get_session_info_cmd((session_info>>24),&session_info);//L002E88
 0022A8 65F3     	MOV     	R15,R5		;
 0022AA 6403     	MOV     	R0,R4			;
 0022AC 2448     	TST     	R4,R4			;
-0022AE 8903     	BT      	#006			;
+0022AE 8903     	BT      	L0022B8		;if (ret) return 0xFFFFFFD2;
 0022B0 7F0C     	ADD     	#0C,R15		;
 0022B2 4F26     	LDS.L   	@R15+,PR		;
 0022B4 000B     	RTS     				;
 0022B6 E0D2     	MOV     	#D2,R0		;
+L0022B8:
 0022B8 53F1     	MOV.L   	@(#04,R15),R3	;
 0022BA 62F3     	MOV     	R15,R2		;
 0022BC 6120     	MOV.B   	@R2,R1		;
 0022BE 611C     	EXTU.B   	R1,R1			;
-0022C0 2312     	MOV.L   	R1,@R3		;
+0022C0 2312     	MOV.L   	R1,@R3		;*tno = session_info>>24;
 0022C2 53F2     	MOV.L   	@(#08,R15),R3	;
 0022C4 62F2     	MOV.L   	@R15,R2		;
 0022C6 D10B     	MOV.L   	@(#02C,PC),R1	;
 0022C8 2219     	AND     	R1,R2			;
-0022CA 2322     	MOV.L   	R2,@R3		;
+0022CA 2322     	MOV.L   	R2,@R3		;*fad = session_info & 0x00FFFFFF;
 0022CC 54F1     	MOV.L   	@(#04,R15),R4	;
 0022CE E301     	MOV     	#01,R3		;
 0022D0 6442     	MOV.L   	@R4,R4		;
 0022D2 3433     	CMP/GE 	R3,R4			;
-0022D4 8B02     	BF      	#004			;
+0022D4 8B02     	BF      	L0022DC		;
 0022D6 E363     	MOV     	#63,R3		;
 0022D8 3437     	CMP/GT 	R3,R4			;
-0022DA 8B03     	BF      	#006			;
+0022DA 8B03     	BF      	L0022E4		;if (*tno < 1 || *tno > 99) return 0xFFFFFFD1;
 0022DC 7F0C     	ADD     	#0C,R15		;
 0022DE 4F26     	LDS.L   	@R15+,PR		;
 0022E0 000B     	RTS     				;
 0022E2 E0D1     	MOV     	#D1,R0		;
+L0022E4:
 0022E4 E000     	MOV     	#00,R0		;
 0022E6 7F0C     	ADD     	#0C,R15		;
 0022E8 4F26     	LDS.L   	@R15+,PR		;
-0022EA 000B     	RTS     				;
+0022EA 000B     	RTS     				;return 0;
 0022EC 0009     	NOP     				;
 0022EE 7B12
 0022F0 00002E88
-0022F4 00FF
-0022F6 FFFF
+0022F4 00FFFFFF
+
+L0022F8:							;int cdb_check_fs()
 0022F8 4F22     	STS.L   	PR,@-R15		;
 0022FA 7FF4     	ADD     	#F4,R15		;
 0022FC 9337     	MOV.W   	@(#06E,PC),R3	;
 0022FE 1F32     	MOV.L   	R3,@(#8,R15)	;
 002300 D31B     	MOV.L   	@(#06C,PC),R3	;
-002302 430B     	JSR     	@R3			;
+002302 430B     	JSR     	@R3			;u16 hirq = cdb_read_hirq();//L003C32
 002304 0009     	NOP     				;
 002306 600D     	EXTU.W   	R0,R0			;
 002308 52F2     	MOV.L   	@(#08,R15),R2	;
@@ -3844,81 +3889,89 @@ L002280:
 002310 74FF     	ADD     	#FF,R4		;
 002312 644B     	NEG     	R4,R4			;
 002314 2448     	TST     	R4,R4			;
-002316 8B03     	BF      	#006			;
+002316 8B03     	BF      	L00231E		;if (hirq & HIRQ_EFLS == 0) return 0;
 002318 7F0C     	ADD     	#0C,R15		;
 00231A 4F26     	LDS.L   	@R15+,PR		;
 00231C 000B     	RTS     				;
+L00231E:
 00231E E000     	MOV     	#00,R0		;
 002320 66F3     	MOV     	R15,R6		;
 002322 65F3     	MOV     	R15,R5		;
 002324 D313     	MOV.L   	@(#04C,PC),R3	;
-002326 7604     	ADD     	#04,R6		;
-002328 430B     	JSR     	@R3			;
+002326 7604     	ADD     	#04,R6		;u16 auth_stat,temp;
+002328 430B     	JSR     	@R3			;int ret = cdb_get_device_authentication_status_cmd(0x00,&auth_stat,&temp);//L003EBC
 00232A E400     	MOV     	#00,R4		;
 00232C 6403     	MOV     	R0,R4			;
 00232E 2448     	TST     	R4,R4			;
-002330 8903     	BT      	#006			;
+002330 8903     	BT      	L00233A		;if (ret) return 0xFFFFFFCE;
 002332 7F0C     	ADD     	#0C,R15		;
 002334 4F26     	LDS.L   	@R15+,PR		;
 002336 000B     	RTS     				;
 002338 E0CE     	MOV     	#CE,R0		;
+L00233A:
 00233A 60F1     	MOV.W   	@R15,R0		;
 00233C 600D     	EXTU.W   	R0,R0			;
 00233E C9FF     	AND     	#FF,R0		;
 002340 8804     	CMP/EQ  	#04,R0		;
-002342 8903     	BT      	#006			;
+002342 8903     	BT      	L00234C		;if (auth_stat & 0xFF != 0x04) return 0xFFFFFFCD;
 002344 7F0C     	ADD     	#0C,R15		;
 002346 4F26     	LDS.L   	@R15+,PR		;
 002348 000B     	RTS     				;
 00234A E0CD     	MOV     	#CD,R0		;
-00234C E001     	MOV     	#01,R0		;
+L00234C:
+00234C E001     	MOV     	#01,R0		;return 0x00000001;
 00234E 7F0C     	ADD     	#0C,R15		;
 002350 4F26     	LDS.L   	@R15+,PR		;
 002352 000B     	RTS     				;
 002354 0009     	NOP     				;
+
+L002356:							;int cdb_read_boot(u32 lba)
 002356 2FE6     	MOV.L   	R14,@-R15		;
 002358 2FD6     	MOV.L   	R13,@-R15		;
 00235A 6E43     	MOV     	R4,R14		;
 00235C 4F22     	STS.L   	PR,@-R15		;
 00235E 7FFC     	ADD     	#FC,R15		;
 002360 4E11     	CMP/PZ  	R14			;
-002362 8B02     	BF      	#004			;
+002362 8B02     	BF      	L00236A		;
 002364 E20F     	MOV     	#0F,R2		;
 002366 3E23     	CMP/GE 	R2,R14		;
-002368 8B06     	BF      	#00C			;
-00236A A01A     	BRA     	#0034			;
+002368 8B06     	BF      	L002378		;if (lba < 0 || lba >= 15) return 0xFFFFFFCB;
+L00236A:
+00236A A01A     	BRA     	L0023A2		;
 00236C E0CB     	MOV     	#CB,R0		;
 00236E 0200     	
-002370 0000     	
-002372 3C32
-002374 0000     	
-002376 3EBC
-002378 65F3     	MOV     	R15,R5		;
-00237A B388     	BRS     	#0710			;
+002370 00003C32
+002374 00003EBC
+L002378:
+002378 65F3     	MOV     	R15,R5		;u8 cd_status;
+00237A B388     	BRS     	L002A8E		;int ret = cdb_get_status(0,&cd_status);//L002A8E
 00237C E400     	MOV     	#00,R4		;
 00237E 6D03     	MOV     	R0,R13		;
 002380 2DD8     	TST     	R13,R13		;
 002382 8901     	BT      	#002			;
-002384 A00D     	BRA     	#001A			;
+002384 A00D     	BRA     	L0023A2		;if (ret) return ret;
 002386 60D3     	MOV     	R13,R0		;
 002388 E70F     	MOV     	#0F,R7		;
 00238A E605     	MOV     	#05,R6		;
 00238C E500     	MOV     	#00,R5		;
 00238E D317     	MOV.L   	@(#05C,PC),R3	;
-002390 430B     	JSR     	@R3			;
+002390 430B     	JSR     	@R3			;ret = cdb_init_cd_system_cmd(0,0,0x05,0x0F);//L002ECE
 002392 6453     	MOV     	R5,R4			;
 002394 6403     	MOV     	R0,R4			;
 002396 2448     	TST     	R4,R4			;
 002398 8901     	BT      	#002			;
-00239A A002     	BRA     	#0004			;
+00239A A002     	BRA     	L0023A2		;if (ret) return 0xFFFFFFCA;
 00239C E0CA     	MOV     	#CA,R0		;
-00239E B005     	BRS     	#000A			;
+00239E B005     	BRS     	L0023AC 		;return cdb_request_data(lba);//L0023AC
 0023A0 64E3     	MOV     	R14,R4		;
+L0023A2:
 0023A2 7F04     	ADD     	#04,R15		;
 0023A4 4F26     	LDS.L   	@R15+,PR		;
 0023A6 6DF6     	MOV.L   	@R15+,R13		;
 0023A8 000B     	RTS     				;
 0023AA 6EF6     	MOV.L   	@R15+,R14		;
+
+L0023AC:							;int cdb_request_data(u32 lba)
 0023AC 2FE6     	MOV.L   	R14,@-R15		;
 0023AE 2FD6     	MOV.L   	R13,@-R15		;
 0023B0 2FC6     	MOV.L   	R12,@-R15		;
@@ -3928,93 +3981,93 @@ L002280:
 0023B8 DE0E     	MOV.L   	@(#038,PC),R14	;
 0023BA 1F42     	MOV.L   	R4,@(#8,R15)	;
 0023BC ED00     	MOV     	#00,R13		;
-0023BE 4C0B     	JSR     	@R12			;
+L0023BE:							;for (int i=0; i<660000; i++) {
+0023BE 4C0B     	JSR     	@R12			;  int ret = cdb_set_cd_device_connection_cmd(0);//L00318C
 0023C0 E400     	MOV     	#00,R4		;
 0023C2 6403     	MOV     	R0,R4			;
 0023C4 2448     	TST     	R4,R4			;
-0023C6 8B04     	BF      	#008			;
+0023C6 8B04     	BF      	L0023D2		;  if (!ret) {
 0023C8 D50B     	MOV.L   	@(#02C,PC),R5	;
-0023CA B334     	BRS     	#0668			;
+0023CA B334     	BRS     	L002A36		;    ret = cdb_wait_hirq(HIRQ_ESEL,2900000);//L002A36
 0023CC E440     	MOV     	#40,R4		;
-0023CE A015     	BRA     	#002A			;
-0023D0 1F03     	MOV.L   	R0,@(#C,R15)	;
+0023CE A015     	BRA     	L0023FC		;    break;
+0023D0 1F03     	MOV.L   	R0,@(#C,R15)	;  }
+L0023D2:
 0023D2 6043     	MOV     	R4,R0			;
 0023D4 88FF     	CMP/EQ  	#FF,R0		;
-0023D6 8901     	BT      	#002			;
-0023D8 A048     	BRA     	#0090			;
+0023D6 8901     	BT      	#002			;  else if (ret != 0xFFFFFFFF)
+0023D8 A048     	BRA     	L00246C		;    return 0xFFFFFFC8;
 0023DA E0C8     	MOV     	#C8,R0		;
 0023DC 63D3     	MOV     	R13,R3		;
 0023DE 33E7     	CMP/GT 	R14,R3		;
-0023E0 8F02     	BF/S    	#004			;
+0023E0 8F02     	BF/S    	L0023E8		;
 0023E2 7D01     	ADD     	#01,R13		;
-0023E4 A042     	BRA     	#0084			;
+0023E4 A042     	BRA     	L00246C		;
 0023E6 E0C7     	MOV     	#C7,R0		;
-0023E8 AFE9     	BRA     	#1FD2			;
-0023EA 0009     	NOP     				;
-0023EC 0000     	
-0023EE 2ECE
-0023F0 0000     	
-0023F2 318C
-0023F4 000A     	STS     	MACH, R0		;
-0023F6 1220     	MOV.L   	R2,@(#0,R2)		;
-0023F8 002C     	MOV.B   	@(R0,R2),R0		;
-0023FA 4020     	SHAL    	R0			;
+0023E8 AFE9     	BRA     	L0023BE		;
+0023EA 0009     	NOP     				;}
+0023EC 00002ECE
+0023F0 0000318C
+0023F4 000A1220
+0023F8 002C4020
+L0023FC:
 0023FC 50F3     	MOV.L   	@(#0C,R15),R0	;
 0023FE 2008     	TST     	R0,R0			;
 002400 8901     	BT      	#002			;
-002402 A033     	BRA     	#0066			;
+002402 A033     	BRA     	L00246C		;if (ret) return 0xFFFFFFC6;
 002404 E0C6     	MOV     	#C6,R0		;
 002406 65F3     	MOV     	R15,R5		;
-002408 7504     	ADD     	#04,R5		;
-00240A BF39     	BRS     	#1E72			;
+002408 7504     	ADD     	#04,R5		;u8 tno; u32 fad_start;
+00240A BF39     	BRS     	L002280		;int ret = cdb_get_session0_info(&tno,&fad_start);//L002280
 00240C 64F3     	MOV     	R15,R4		;
 00240E 6403     	MOV     	R0,R4			;
 002410 2448     	TST     	R4,R4			;
 002412 8901     	BT      	#002			;
-002414 A02A     	BRA     	#0054			;
+002414 A02A     	BRA     	L00246C		;if (ret) return ret;
 002416 6043     	MOV     	R4,R0			;
 002418 D418     	MOV.L   	@(#060,PC),R4	;
 00241A D319     	MOV.L   	@(#064,PC),R3	;
-00241C 430B     	JSR     	@R3			;
+00241C 430B     	JSR     	@R3			;cdb_ack_hirq(0xFFEF);//L003C38
 00241E 0009     	NOP     				;
 002420 E401     	MOV     	#01,R4		;
 002422 62F3     	MOV     	R15,R2		;
 002424 63F3     	MOV     	R15,R3		;
 002426 65F3     	MOV     	R15,R5		;
 002428 7210     	ADD     	#10,R2		;
-00242A 7310     	ADD     	#10,R3		;
-00242C 2242     	MOV.L   	R4,@R2		;
+00242A 7310     	ADD     	#10,R3		;u32 play_param[5];
+00242C 2242     	MOV.L   	R4,@R2		;play_param[0] = 0x00000001;
 00242E 52F2     	MOV.L   	@(#08,R15),R2	;
 002430 51F1     	MOV.L   	@(#04,R15),R1	;
 002432 9021     	MOV.W   	@(#042,PC),R0	;
 002434 321C     	ADD     	R1,R2			;
 002436 320C     	ADD     	R0,R2			;
-002438 1321     	MOV.L   	R2,@(#4,R3)		;
+002438 1321     	MOV.L   	R2,@(#4,R3)		;play_param[1] = lba + fad_start + 150;
 00243A E010     	MOV     	#10,R0		;
 00243C 63F3     	MOV     	R15,R3		;
 00243E 62F3     	MOV     	R15,R2		;
 002440 7310     	ADD     	#10,R3		;
 002442 7210     	ADD     	#10,R2		;
-002444 1342     	MOV.L   	R4,@(#8,R3)		;
+002444 1342     	MOV.L   	R4,@(#8,R3)		;play_param[2] = 0x00000001;
 002446 E310     	MOV     	#10,R3		;
 002448 51F2     	MOV.L   	@(#08,R15),R1	;
 00244A 3318     	SUB     	R1,R3			;
-00244C 1233     	MOV.L   	R3,@(#C,R2)		;
+00244C 1233     	MOV.L   	R3,@(#C,R2)		;play_param[3] = 16 - lba;
 00244E 63F3     	MOV     	R15,R3		;
 002450 E200     	MOV     	#00,R2		;
 002452 7310     	ADD     	#10,R3		;
-002454 0324     	MOV.B   	R2,@(R0,R3)		;
-002456 B31A     	BRS     	#0634			;
+002454 0324     	MOV.B   	R2,@(R0,R3)		;play_param[4] = 0x00<<24;
+002456 B31A     	BRS     	L002A8E		;ret = cdb_get_status(0,&cd_status);//L002A8E
 002458 6423     	MOV     	R2,R4			;
 00245A 6D03     	MOV     	R0,R13		;
 00245C 2DD8     	TST     	R13,R13		;
 00245E 8901     	BT      	#002			;
-002460 A004     	BRA     	#0008			;
+002460 A004     	BRA     	L00246C		;if (ret) return ret;
 002462 60D3     	MOV     	R13,R0		;
 002464 64F3     	MOV     	R15,R4		;
 002466 D307     	MOV.L   	@(#01C,PC),R3	;
-002468 430B     	JSR     	@R3			;
+002468 430B     	JSR     	@R3			;return cdb_play_disc_cmd(play_param);//L003050
 00246A 7410     	ADD     	#10,R4		;
+L00246C:
 00246C 7F24     	ADD     	#24,R15		;
 00246E 4F26     	LDS.L   	@R15+,PR		;
 002470 6CF6     	MOV.L   	@R15+,R12		;
@@ -4023,33 +4076,31 @@ L002280:
 002476 6EF6     	MOV.L   	@R15+,R14		;
 002478 0096
 00247A 2D80
-00247C 0000
-00247E FFEF
-002480 0000
-002482 3C38
-002484 0000
-002486 3050
+00247C 0000FFEF
+002480 00003C38
+002484 00003050
 
-L002488:							;
+L002488:							;int cdb_get_boot_data(u32* buf)
 002488 2FE6     	MOV.L   	R14,@-R15		;
 00248A 4F22     	STS.L   	PR,@-R15		;
 00248C 7FF4     	ADD     	#F4,R15		;
-00248E 65F3     	MOV     	R15,R5		;
-002490 1F41     	MOV.L   	R4,@(#4,R15)	;
-002492 B2FC     	BRS     	#05F8			;
+00248E 65F3     	MOV     	R15,R5		;int ret;
+002490 1F41     	MOV.L   	R4,@(#4,R15)	;u8 cd_status;
+002492 B2FC     	BRS     	L002A8E		;ret = cdb_get_status(0,&cd_status);//L002A8E
 002494 E400     	MOV     	#00,R4		;
 002496 6E03     	MOV     	R0,R14		;
 002498 2EE8     	TST     	R14,R14		;
-00249A 8904     	BT      	#008			;
+00249A 8904     	BT      	L0024A6		;if (ret) return ret;
 00249C 60E3     	MOV     	R14,R0		;
 00249E 7F0C     	ADD     	#0C,R15		;
 0024A0 4F26     	LDS.L   	@R15+,PR		;
 0024A2 000B     	RTS     				;
 0024A4 6EF6     	MOV.L   	@R15+,R14		;
+L0024A6:
 0024A6 E310     	MOV     	#10,R3		;
 0024A8 1F32     	MOV.L   	R3,@(#8,R15)	;
 0024AA D319     	MOV.L   	@(#064,PC),R3	;
-0024AC 430B     	JSR     	@R3			;
+0024AC 430B     	JSR     	@R3			;u16 hirq = cdb_read_hirq();//L003C32
 0024AE 0009     	NOP     				;
 0024B0 600D     	EXTU.W   	R0,R0			;
 0024B2 52F2     	MOV.L   	@(#08,R15),R2	;
@@ -4059,31 +4110,33 @@ L002488:							;
 0024BA 74FF     	ADD     	#FF,R4		;
 0024BC 644B     	NEG     	R4,R4			;
 0024BE 2448     	TST     	R4,R4			;
-0024C0 8B04     	BF      	#008			;
+0024C0 8B04     	BF      	L0024CC		;if (hirq & HIRQ_PEND == 0) return 0;
 0024C2 E000     	MOV     	#00,R0		;
 0024C4 7F0C     	ADD     	#0C,R15		;
 0024C6 4F26     	LDS.L   	@R15+,PR		;
 0024C8 000B     	RTS     				;
 0024CA 6EF6     	MOV.L   	@R15+,R14		;
+L0024CC:
 0024CC 56F1     	MOV.L   	@(#04,R15),R6	;
 0024CE D511     	MOV.L   	@(#044,PC),R5	;
-0024D0 B00D     	BRS     	L0024EE		;L0024EE();
+0024D0 B00D     	BRS     	L0024EE		;ret = cdb_get_data_inner(HIRQ_PEND,16*2048,buf);//L0024EE
 0024D2 E410     	MOV     	#10,R4		;
 0024D4 6403     	MOV     	R0,R4			;
 0024D6 2448     	TST     	R4,R4			;
-0024D8 8B04     	BF      	#008			;
+0024D8 8B04     	BF      	L0024E4		;if (ret) return ret;
 0024DA E001     	MOV     	#01,R0		;
 0024DC 7F0C     	ADD     	#0C,R15		;
 0024DE 4F26     	LDS.L   	@R15+,PR		;
-0024E0 000B     	RTS     				;
+0024E0 000B     	RTS     				;return 1;
 0024E2 6EF6     	MOV.L   	@R15+,R14		;
+L0024E4:
 0024E4 6043     	MOV     	R4,R0			;
 0024E6 7F0C     	ADD     	#0C,R15		;
 0024E8 4F26     	LDS.L   	@R15+,PR		;
 0024EA 000B     	RTS     				;
 0024EC 6EF6     	MOV.L   	@R15+,R14		;
 
-L0024EE:							;
+L0024EE:							;int cdb_get_data_inner(u16 mask,int len,u32* buf)
 0024EE 2FE6     	MOV.L   	R14,@-R15		;
 0024F0 2FD6     	MOV.L   	R13,@-R15		;
 0024F2 2FC6     	MOV.L   	R12,@-R15		;
@@ -4094,84 +4147,87 @@ L0024EE:							;
 0024FC EB00     	MOV     	#00,R11		;
 0024FE 1F43     	MOV.L   	R4,@(#C,R15)	;
 002500 1F62     	MOV.L   	R6,@(#8,R15)	;
-002502 6CB3     	MOV     	R11,R12		;
+002502 6CB3     	MOV     	R11,R12		;int lw_cnt = 0;
 002504 6E53     	MOV     	R5,R14		;
 002506 7E03     	ADD     	#03,R14		;
-002508 4E09     	SHLR2   	R14			;
-00250A A044     	BRA     	#0088			;
-00250C 6AB3     	MOV     	R11,R10		;
+002508 4E09     	SHLR2   	R14			;int lw_len = (len + 3) / 4;
+00250A A044     	BRA     	L002596		;int ret;
+00250C 6AB3     	MOV     	R11,R10		;int i = 0;
+
 00250E D3A7     	MOV.L   	@(#29C,PC),R3	;
-002510 0000     	
-002512 3C32
-002514 0000     	
-002516 8000
-002518 65F3     	MOV     	R15,R5		;
-00251A 7504     	ADD     	#04,R5		;
-00251C B2B7     	BRS     	#056E			;
+002510 00003C32
+002514 00008000
+L002518:
+002518 65F3     	MOV     	R15,R5		;while (lw_len > 0) {
+00251A 7504     	ADD     	#04,R5		;  u8 cd_status;
+00251C B2B7     	BRS     	L002A8E		;  ret = cdb_get_status(0,&cd_status);//L002A8E
 00251E E400     	MOV     	#00,R4		;
 002520 6D03     	MOV     	R0,R13		;
 002522 2DD8     	TST     	R13,R13		;
 002524 8901     	BT      	#002			;
-002526 A03A     	BRA     	#0074			;
+002526 A03A     	BRA     	L00259E		;  if (ret) return ret;
 002528 60D3     	MOV     	R13,R0		;
 00252A 65F3     	MOV     	R15,R5		;
-00252C D315     	MOV.L   	@(#054,PC),R3	;
-00252E 430B     	JSR     	@R3			;
+00252C D315     	MOV.L   	@(#054,PC),R3	;  s32 snum;
+00252E 430B     	JSR     	@R3			;  ret = cdb_get_sector_number_cmd(0,&snum);//L0035BA
 002530 E400     	MOV     	#00,R4		;
 002532 6403     	MOV     	R0,R4			;
 002534 2448     	TST     	R4,R4			;
 002536 8901     	BT      	#002			;
-002538 A031     	BRA     	#0062			;
+002538 A031     	BRA     	L00259E		;  if (ret) return ret;
 00253A E0C4     	MOV     	#C4,R0		;
 00253C 60F2     	MOV.L   	@R15,R0		;
 00253E 2008     	TST     	R0,R0			;
-002540 8B0C     	BF      	#018			;
+002540 8B0C     	BF      	L00255C		;  if (snum == 0) {
 002542 55F3     	MOV.L   	@(#0C,R15),R5	;
-002544 B033     	BRS     	#0066			;
+002544 B033     	BRS     	L0025AE		;    bool err = cdb_check_status_error(status,mask);//L0025AE
 002546 54F1     	MOV.L   	@(#04,R15),R4	;
 002548 2008     	TST     	R0,R0			;
 00254A 8901     	BT      	#002			;
-00254C A025     	BRA     	#004A			;
+00254C A025     	BRA     	L00259A		;    if (err) break;
 00254E 0009     	NOP     				;
 002550 9316     	MOV.W   	@(#02C,PC),R3	;
 002552 3A37     	CMP/GT 	R3,R10		;
-002554 8F1F     	BF/S    	#03E			;
-002556 7A01     	ADD     	#01,R10		;
-002558 A021     	BRA     	#0042			;
-00255A E0C3     	MOV     	#C3,R0		;
-00255C 64F2     	MOV.L   	@R15,R4		;
+002554 8F1F     	BF/S    	L002596		;
+002556 7A01     	ADD     	#01,R10		;  
+002558 A021     	BRA     	L00259E		;    if (i++ > 3000) return 0xFFFFFFC3;
+00255A E0C3     	MOV     	#C3,R0		;  }
+L00255C:
+00255C 64F2     	MOV.L   	@R15,R4		;  else {
 00255E 4418     	SHLL8   	R4			;
 002560 4400     	SHLL    	R4			;
 002562 34E3     	CMP/GE 	R14,R4		;
-002564 8D02     	BT/S    	#004			;
+002564 8D02     	BT/S    	L00256C		;
 002566 6AB3     	MOV     	R11,R10		;
-002568 A001     	BRA     	#0002			;
+002568 A001     	BRA     	L00256C		;
 00256A 6D43     	MOV     	R4,R13		;
 00256C 6DE3     	MOV     	R14,R13		;
-00256E 65D3     	MOV     	R13,R5		;
+00256E 65D3     	MOV     	R13,R5		;    u32 lw_read = snum * 2048 / 4 >= lw_len ? lw_len : snum * 2048 / 4;
 002570 56F2     	MOV.L   	@(#08,R15),R6	;
-002572 B041     	BRS     	L0025F8		;L0025F8();
+002572 B041     	BRS     	L0025F8		;    ret = cdb_get_sector_data(snum,lw_read,buf);//L0025F8
 002574 64F2     	MOV.L   	@R15,R4		;
 002576 6403     	MOV     	R0,R4			;
 002578 2448     	TST     	R4,R4			;
-00257A 8905     	BT      	#00A			;
-00257C A00F     	BRA     	#001E			;
+00257A 8905     	BT      	L002588		;
+00257C A00F     	BRA     	L00259E		;    if (ret) return ret;
 00257E 6043     	MOV     	R4,R0			;
 002580 0BB8
 002582 8FC8
-002584 0000
-002586 35BA     	SUBC    	R11,R5		;
+002584 000035BA
 002588 63D3     	MOV     	R13,R3		;
 00258A 4308     	SHLL2   	R3			;
 00258C 52F2     	MOV.L   	@(#08,R15),R2	;
 00258E 323C     	ADD     	R3,R2			;
-002590 1F22     	MOV.L   	R2,@(#8,R15)	;
-002592 3CDC     	ADD     	R13,R12		;
-002594 3ED8     	SUB     	R13,R14		;
+002590 1F22     	MOV.L   	R2,@(#8,R15)	;    buf += lw_read;
+002592 3CDC     	ADD     	R13,R12		;    lw_cnt += lw_read;
+002594 3ED8     	SUB     	R13,R14		;    lw_len -= lw_read
+L002596:							;  }
 002596 4E15     	CMP/PL  	R14			;
-002598 89BE     	BT      	#17C			;
+002598 89BE     	BT      	L002518		;};
+L00259A:
 00259A 60C3     	MOV     	R12,R0		;
-00259C 4008     	SHLL2   	R0			;
+00259C 4008     	SHLL2   	R0			;return lw_cnt * 4;
+L00259E:
 00259E 7F10     	ADD     	#10,R15		;
 0025A0 4F26     	LDS.L   	@R15+,PR		;
 0025A2 6AF6     	MOV.L   	@R15+,R10		;
@@ -4180,16 +4236,20 @@ L0024EE:							;
 0025A8 6DF6     	MOV.L   	@R15+,R13		;
 0025AA 000B     	RTS     				;
 0025AC 6EF6     	MOV.L   	@R15+,R14		;
+
+L0025AE:							;bool cdb_check_status_error(u8 cd_stat,u16 mask)
 0025AE 4F22     	STS.L   	PR,@-R15		;
 0025B0 7FFC     	ADD     	#FC,R15		;
-0025B2 A014     	BRA     	#0028			;
-0025B4 6043     	MOV     	R4,R0			;
-0025B6 7F04     	ADD     	#04,R15		;
+0025B2 A014     	BRA     	L0025DE		;
+0025B4 6043     	MOV     	R4,R0			;switch (cd_stat) {
+L0025B6:
+0025B6 7F04     	ADD     	#04,R15		;case STAT_ERROR:
 0025B8 4F26     	LDS.L   	@R15+,PR		;
-0025BA 000B     	RTS     				;
+0025BA 000B     	RTS     				;  return 1;
 0025BC E001     	MOV     	#01,R0		;
-0025BE D30D     	MOV.L   	@(#034,PC),R3	;
-0025C0 430B     	JSR     	@R3			;
+L0025BE:							;case STAT_PAUSE:
+0025BE D30D     	MOV.L   	@(#034,PC),R3	;case STAT_STANDBY:
+0025C0 430B     	JSR     	@R3			;  u16 hirq = cdb_read_hirq();//L003C32
 0025C2 2F52     	MOV.L   	R5,@R15		;
 0025C4 600D     	EXTU.W   	R0,R0			;
 0025C6 62F2     	MOV.L   	@R15,R2		;
@@ -4199,26 +4259,27 @@ L0024EE:							;
 0025CE 74FF     	ADD     	#FF,R4		;
 0025D0 644B     	NEG     	R4,R4			;
 0025D2 2448     	TST     	R4,R4			;
-0025D4 8909     	BT      	#012			;
+0025D4 8909     	BT      	L0025EA		;  if (hirq & mask == 0) return 0;
 0025D6 7F04     	ADD     	#04,R15		;
 0025D8 4F26     	LDS.L   	@R15+,PR		;
-0025DA 000B     	RTS     				;
+0025DA 000B     	RTS     				;  return 1;
 0025DC E001     	MOV     	#01,R0		;
+L0025DE:
 0025DE 8801     	CMP/EQ  	#01,R0		;
-0025E0 89ED     	BT      	#1DA			;
+0025E0 89ED     	BT      	L0025BE		;
 0025E2 8802     	CMP/EQ  	#02,R0		;
-0025E4 89EB     	BT      	#1D6			;
+0025E4 89EB     	BT      	L0025BE		;
 0025E6 8809     	CMP/EQ  	#09,R0		;
-0025E8 89E5     	BT      	#1CA			;
+0025E8 89E5     	BT      	L0025B6		;
+L0025EA:
 0025EA E000     	MOV     	#00,R0		;
 0025EC 7F04     	ADD     	#04,R15		;
-0025EE 4F26     	LDS.L   	@R15+,PR		;
-0025F0 000B     	RTS     				;
-0025F2 0009     	NOP     				;
-0025F4 0000
-0025F6 3C32
+0025EE 4F26     	LDS.L   	@R15+,PR		;default:
+0025F0 000B     	RTS     				;  return 0;
+0025F2 0009     	NOP     				;}
+0025F4 00003C32
 
-L0025F8:							;void (u16 snum,u32 len,u8* buf) //snum-R4,len-R5,buf-R6
+L0025F8:							;void cdb_get_sector_data(u16 snum,u32 len,u32* buf) //snum-R4,len-R5,buf-R6
 0025F8 2FE6     	MOV.L   	R14,@-R15		;
 0025FA 2FD6     	MOV.L   	R13,@-R15		;
 0025FC 2FC6     	MOV.L   	R12,@-R15		;
@@ -4233,16 +4294,16 @@ L0025F8:							;void (u16 snum,u32 len,u8* buf) //snum-R4,len-R5,buf-R6
 00260E 2F42     	MOV.L   	R4,@R15		;
 002610 6B53     	MOV     	R5,R11		;
 002612 6E63     	MOV     	R6,R14		;
-002614 6AC3     	MOV     	R12,R10		;int err = 0;
+002614 6AC3     	MOV     	R12,R10		;int ret = 0;
 L002616:
 002616 E500     	MOV     	#00,R5		;while (1) {
 002618 66F2     	MOV.L   	@R15,R6		;
-00261A 490B     	JSR     	@R9			;  err = cdb_get_del_sector_data(0,0,snum);
+00261A 490B     	JSR     	@R9			;  ret = cdb_get_del_sector_data_cmd(0,0,snum);//L0038CE
 00261C 6453     	MOV     	R5,R4			;
 00261E 6403     	MOV     	R0,R4			;
 002620 2448     	TST     	R4,R4			;
 002622 8B01     	BF      	#002			;
-002624 A00D     	BRA     	L002642		;  if (err == 0) break;
+002624 A00D     	BRA     	L002642		;  if (ret == 0) break;
 002626 0009     	NOP     				;
 002628 6043     	MOV     	R4,R0			;
 00262A 88FF     	CMP/EQ  	#FF,R0		;
@@ -4259,25 +4320,25 @@ L002616:
 002640 0009     	NOP     				;}
 L002642:
 002642 D316     	MOV.L   	@(#058,PC),R3	;
-002644 430B     	JSR     	@R3			;err = cdb_wait_drdy(0);//L002F9C
+002644 430B     	JSR     	@R3			;ret = cdb_wait_drdy(0);//L002F9C
 002646 E400     	MOV     	#00,R4		;
 002648 6403     	MOV     	R0,R4			;
 00264A 2448     	TST     	R4,R4			;
 00264C 8901     	BT      	#002			;
-00264E A017     	BRA     	L002680		;if (err != 0) return 0xFFFFFFBD;
+00264E A017     	BRA     	L002680		;if (ret != 0) return 0xFFFFFFBD;
 002650 E0BD     	MOV     	#BD,R0		;
 002652 D313     	MOV.L   	@(#04C,PC),R3	;
 002654 430B     	JSR     	@R3			;//L003C2C();
 002656 0009     	NOP     				;
 002658 6503     	MOV     	R0,R5			;
-00265A 3CB3     	CMP/GE 	R11,R12		;err = 0;
+00265A 3CB3     	CMP/GE 	R11,R12		;ret = 0;
 00265C 8D06     	BT/S    	L00266C		;if (len > 0) {
 00265E 64C3     	MOV     	R12,R4		;
 002660 6352     	MOV.L   	@R5,R3		;
-002662 7401     	ADD     	#01,R4		;  for (int i=0; i<len; i++) {
-002664 2E32     	MOV.L   	R3,@R14		;    *(u32*)buf = CDB.DATATRNS2;//0x25818000
-002666 34B3     	CMP/GE 	R11,R4		;    buf += 4;
-002668 8FFA     	BF/S    	L002660		;  }
+002662 7401     	ADD     	#01,R4		;  for (int i=0; i<len; i++)
+002664 2E32     	MOV.L   	R3,@R14		;    *buf++ = CDB.DATATRNS2;//0x25818000
+002666 34B3     	CMP/GE 	R11,R4		;
+002668 8FFA     	BF/S    	L002660		;
 00266A 7E04     	ADD     	#04,R14		;}
 L00266C:
 00266C 64F3     	MOV     	R15,R4		;
@@ -4763,17 +4824,18 @@ L002680:
 002A32 A000     	BRA     	#0000			;
 002A34 0009     	NOP     				;
 
-L002A36:
+L002A36:							;int cdb_wait_hirq(u16 mask,u32 cnt)
 002A36 2FE6     	MOV.L   	R14,@-R15		;
 002A38 4F22     	STS.L   	PR,@-R15		;
 002A3A 7FF4     	ADD     	#F4,R15		;
 002A3C 2F42     	MOV.L   	R4,@R15		;
 002A3E 1F51     	MOV.L   	R5,@(#4,R15)	;
-002A40 A017     	BRA     	#002E			;
+002A40 A017     	BRA     	L002A72		;
 002A42 EE00     	MOV     	#00,R14		;
-002A44 62F2     	MOV.L   	@R15,R2		;
+L002A44:
+002A44 62F2     	MOV.L   	@R15,R2		;for (int i=0; i<cnt; i++) {
 002A46 D308     	MOV.L   	@(#020,PC),R3	;
-002A48 430B     	JSR     	@R3			;
+002A48 430B     	JSR     	@R3			;  hirq = cdb_read_hirq();//L003C32
 002A4A 1F22     	MOV.L   	R2,@(#8,R15)	;
 002A4C 600D     	EXTU.W   	R0,R0			;
 002A4E 52F2     	MOV.L   	@(#08,R15),R2	;
@@ -4783,25 +4845,27 @@ L002A36:
 002A56 74FF     	ADD     	#FF,R4		;
 002A58 644B     	NEG     	R4,R4			;
 002A5A 2448     	TST     	R4,R4			;
-002A5C 8908     	BT      	#010			;
+002A5C 8908     	BT      	L002A70		;  if (hirq & mask != 0) return 0;
 002A5E E000     	MOV     	#00,R0		;
 002A60 7F0C     	ADD     	#0C,R15		;
 002A62 4F26     	LDS.L   	@R15+,PR		;
 002A64 000B     	RTS     				;
 002A66 6EF6     	MOV.L   	@R15+,R14		;
-002A68 0000     	
-002A6A 3C32
+002A68 00003C32
 002A6C 002C
 002A6E 4020
+L002A70:
 002A70 7E01     	ADD     	#01,R14		;
+L002A72:
 002A72 53F1     	MOV.L   	@(#04,R15),R3	;
 002A74 3E33     	CMP/GE 	R3,R14		;
-002A76 8BE5     	BF      	#1CA			;
+002A76 8BE5     	BF      	L002A44		;}
 002A78 E0FF     	MOV     	#FF,R0		;
 002A7A 7F0C     	ADD     	#0C,R15		;
 002A7C 4F26     	LDS.L   	@R15+,PR		;
-002A7E 000B     	RTS     				;
+002A7E 000B     	RTS     				;return 0xFFFFFFFF;
 002A80 6EF6     	MOV.L   	@R15+,R14		;
+
 002A82 7FFC     	ADD     	#FC,R15		;
 002A84 2F42     	MOV.L   	R4,@R15		;
 002A86 6543     	MOV     	R4,R5			;
@@ -5344,7 +5408,7 @@ L002E22:
 002E82 FFFF
 002E84 00003CA0
 
-L002E88:
+L002E88:							;int cdb_get_session_info_cmd(u8 sesno,u32* si)
 002E88 2FE6     	MOV.L   	R14,@-R15		;
 002E8A 6E43     	MOV     	R4,R14		;
 002E8C 2FD6     	MOV.L   	R13,@-R15		;
@@ -5352,8 +5416,8 @@ L002E88:
 002E90 4F22     	STS.L   	PR,@-R15		;
 002E92 7FF0     	ADD     	#F0,R15		;
 002E94 64F3     	MOV     	R15,R4		;
-002E96 D325     	MOV.L   	@(#094,PC),R3	;
-002E98 430B     	JSR     	@R3			;
+002E96 D325     	MOV.L   	@(#094,PC),R3	;u16 cmd[4];
+002E98 430B     	JSR     	@R3			;mem_clear8(u32* cmd);//L004750
 002E9A 7408     	ADD     	#08,R4		;
 002E9C 62F3     	MOV     	R15,R2		;
 002E9E E303     	MOV     	#03,R3		;
@@ -5366,20 +5430,22 @@ L002E88:
 002EAC 2230     	MOV.B   	R3,@R2		;
 002EAE 62F3     	MOV     	R15,R2		;
 002EB0 7208     	ADD     	#08,R2		;
-002EB2 8021     	MOV.B   	R0,@(#01,R2)	;
-002EB4 D31E     	MOV.L   	@(#078,PC),R3	;
-002EB6 430B     	JSR     	@R3			;
+002EB2 8021     	MOV.B   	R0,@(#01,R2)	;cmd[0] = (0x03<<8) | sesno;
+002EB4 D31E     	MOV.L   	@(#078,PC),R3	;u16 resp[4];
+002EB6 430B     	JSR     	@R3			;int ret = cdb_exec_cmd2(0x0000,cmd,resp);//L004762
 002EB8 E400     	MOV     	#00,R4		;
 002EBA 6403     	MOV     	R0,R4			;
 002EBC 62F3     	MOV     	R15,R2		;
 002EBE 6043     	MOV     	R4,R0			;
 002EC0 5321     	MOV.L   	@(#04,R2),R3	;
-002EC2 2D32     	MOV.L   	R3,@R13		;
+002EC2 2D32     	MOV.L   	R3,@R13		;*si = *(u32*)&resp[2];
 002EC4 7F10     	ADD     	#10,R15		;
 002EC6 4F26     	LDS.L   	@R15+,PR		;
 002EC8 6DF6     	MOV.L   	@R15+,R13		;
-002ECA 000B     	RTS     				;
+002ECA 000B     	RTS     				;return ret;
 002ECC 6EF6     	MOV.L   	@R15+,R14		;
+
+L002ECE:							;int cdb_init_cd_system_cmd(u8 init_flag,u16 stby,u8 ecc,u8 retry)//init_flag-R4,stby-R5,ecc-R6,retry-R7
 002ECE 2FE6     	MOV.L   	R14,@-R15		;
 002ED0 2FD6     	MOV.L   	R13,@-R15		;
 002ED2 6E43     	MOV     	R4,R14		;
@@ -5391,8 +5457,8 @@ L002E88:
 002EDE 6B53     	MOV     	R5,R11		;
 002EE0 7FF4     	ADD     	#F4,R15		;
 002EE2 64F3     	MOV     	R15,R4		;
-002EE4 D311     	MOV.L   	@(#044,PC),R3	;
-002EE6 430B     	JSR     	@R3			;
+002EE4 D311     	MOV.L   	@(#044,PC),R3	;u16 cmd[4];
+002EE6 430B     	JSR     	@R3			;mem_clear8(u32* cmd);//L004750
 002EE8 7404     	ADD     	#04,R4		;
 002EEA 62F3     	MOV     	R15,R2		;
 002EEC E304     	MOV     	#04,R3		;
@@ -5405,11 +5471,11 @@ L002E88:
 002EFA 63EC     	EXTU.B   	R14,R3		;
 002EFC 7204     	ADD     	#04,R2		;
 002EFE 6033     	MOV     	R3,R0			;
-002F00 8021     	MOV.B   	R0,@(#01,R2)	;
+002F00 8021     	MOV.B   	R0,@(#01,R2)	;cmd[0] = (0x04<<8) | init_flag;
 002F02 63F3     	MOV     	R15,R3		;
 002F04 60B3     	MOV     	R11,R0		;
 002F06 7304     	ADD     	#04,R3		;
-002F08 8131     	MOV.W   	R0,@(#02,R3)	;
+002F08 8131     	MOV.W   	R0,@(#02,R3)	;cmd[1] = stby;
 002F0A 63F3     	MOV     	R15,R3		;
 002F0C 60D3     	MOV     	R13,R0		;
 002F0E 7304     	ADD     	#04,R3		;
@@ -5417,56 +5483,59 @@ L002E88:
 002F12 63F3     	MOV     	R15,R3		;
 002F14 60C3     	MOV     	R12,R0		;
 002F16 7304     	ADD     	#04,R3		;
-002F18 8037     	MOV.B   	R0,@(#07,R3)	;
+002F18 8037     	MOV.B   	R0,@(#07,R3)	;cmd[3] = (ecc<<8) | retry;
 002F1A 9005     	MOV.W   	@(#00A,PC),R0	;
 002F1C 20E9     	AND     	R14,R0		;
-002F1E 8801     	CMP/EQ  	#01,R0		;
-002F20 8B1E     	BF      	#03C			;
+002F1E 8801     	CMP/EQ  	#01,R0		;int ret;
+002F20 8B1E     	BF      	L002F60		;if (init_flag & 0x81 == 0) {
 002F22 9202     	MOV.W   	@(#004,PC),R2	;
-002F24 A008     	BRA     	#0010			;
+002F24 A008     	BRA     	L002F38		;
 002F26 0009     	NOP     				;
-002F28 0081     	
+002F28 0081
 002F2A 0DAC
-002F2C 0000     	
-002F2E 4750     	
-002F30 0000     	
-002F32 4762     	
+002F2C 00004750
+002F30 00004762
+L002F34:
 002F34 62F2     	MOV.L   	@R15,R2		;
 002F36 72FF     	ADD     	#FF,R2		;
-002F38 2F22     	MOV.L   	R2,@R15		;
+L002F38:
+002F38 2F22     	MOV.L   	R2,@R15		;  for (int i=0; i<3500; i++);
 002F3A 63F2     	MOV.L   	@R15,R3		;
 002F3C 4315     	CMP/PL  	R3			;
-002F3E 89F9     	BT      	#1F2			;
+002F3E 89F9     	BT      	L002F34		;
 002F40 D31B     	MOV.L   	@(#06C,PC),R3	;
-002F42 430B     	JSR     	@R3			;
+002F42 430B     	JSR     	@R3			;  set_last_hirq(HIRQ_ESEL | HIRQ_CMOK);//L003C76
 002F44 E441     	MOV     	#41,R4		;
 002F46 65F3     	MOV     	R15,R5		;
 002F48 D31A     	MOV.L   	@(#068,PC),R3	;
 002F4A 7504     	ADD     	#04,R5		;
-002F4C 430B     	JSR     	@R3			;
+002F4C 430B     	JSR     	@R3			;  ret = cdb_exec_cmd(HIRQ_ESEL,cmd);//L004788
 002F4E E440     	MOV     	#40,R4		;
 002F50 6E03     	MOV     	R0,R14		;
 002F52 2EE8     	TST     	R14,R14		;
-002F54 8B0A     	BF      	#014			;
+002F54 8B0A     	BF      	L002F6C		;  if (ret != 0) return ret;
 002F56 D318     	MOV.L   	@(#060,PC),R3	;
-002F58 430B     	JSR     	@R3			;
+002F58 430B     	JSR     	@R3			;  cdb_clear_hirq_for_initcd();//L003C64
 002F5A 0009     	NOP     				;
-002F5C A006     	BRA     	#000C			;
-002F5E 0009     	NOP     				;
+002F5C A006     	BRA     	L002F6C		;
+002F5E 0009     	NOP     				;}
+L002F60:
 002F60 65F3     	MOV     	R15,R5		;
 002F62 D314     	MOV.L   	@(#050,PC),R3	;
-002F64 7504     	ADD     	#04,R5		;
-002F66 430B     	JSR     	@R3			;
-002F68 E400     	MOV     	#00,R4		;
+002F64 7504     	ADD     	#04,R5		;else 
+002F66 430B     	JSR     	@R3			;  ret = cdb_exec_cmd(0,cmd);//L004788
+002F68 E400     	MOV     	#00,R4		;  
 002F6A 6E03     	MOV     	R0,R14		;
+L002F6C:
 002F6C 60E3     	MOV     	R14,R0		;
-002F6E 7F0C     	ADD     	#0C,R15		;
+002F6E 7F0C     	ADD     	#0C,R15		;return ret;
 002F70 4F26     	LDS.L   	@R15+,PR		;
 002F72 6BF6     	MOV.L   	@R15+,R11		;
 002F74 6CF6     	MOV.L   	@R15+,R12		;
 002F76 6DF6     	MOV.L   	@R15+,R13		;
 002F78 000B     	RTS     				;
 002F7A 6EF6     	MOV.L   	@R15+,R14		;
+
 002F7C 4F22     	STS.L   	PR,@-R15		;
 002F7E 7FF8     	ADD     	#F8,R15		;
 002F80 D30E     	MOV.L   	@(#038,PC),R3	;
@@ -5495,12 +5564,9 @@ L002F9C:							;int cdb_wait_drdy(arg1)//arg1-R4
 002FAA A00A     	BRA     	L002FC2		;
 002FAC E402     	MOV     	#02,R4		;u16 mask = HIRQ_DRDY;
 002FAE 4AD4
-002FB0 0000
-002FB2 3C76
-002FB4 0000
-002FB6 4788
-002FB8 0000
-002FBA 3C64
+002FB0 00003C76
+002FB4 00004788
+002FB8 00003C64
 002FBC 0000
 002FBE 4750
 L002FC0:
@@ -5538,14 +5604,14 @@ L002FE8:
 002FF8 000B     	RTS     				;return err;
 002FFA 6EF6     	MOV.L   	@R15+,R14		;
 
-L002FFC:							;
+L002FFC:							;int cdb_end_data_transfer_cmd(u32* twn)
 002FFC 2FE6     	MOV.L   	R14,@-R15		;
 002FFE 6E43     	MOV     	R4,R14		;
 003000 4F22     	STS.L   	PR,@-R15		;
 003002 7FF0     	ADD     	#F0,R15		;
 003004 64F3     	MOV     	R15,R4		;
-003006 D30F     	MOV.L   	@(#03C,PC),R3	;
-003008 430B     	JSR     	@R3			;mem_clear8();
+003006 D30F     	MOV.L   	@(#03C,PC),R3	;u16 cmd[4];
+003008 430B     	JSR     	@R3			;mem_clear8(cmd);
 00300A 7408     	ADD     	#08,R4		;
 00300C 62F3     	MOV     	R15,R2		;
 00300E E306     	MOV     	#06,R3		;
@@ -5553,9 +5619,9 @@ L002FFC:							;
 003012 65F3     	MOV     	R15,R5		;
 003014 7208     	ADD     	#08,R2		;
 003016 7508     	ADD     	#08,R5		;
-003018 2230     	MOV.B   	R3,@R2		;
-00301A D30B     	MOV.L   	@(#02C,PC),R3	;
-00301C 430B     	JSR     	@R3			;L004762();
+003018 2230     	MOV.B   	R3,@R2		;cmd[0] = 0x0600;
+00301A D30B     	MOV.L   	@(#02C,PC),R3	;u16 resp[4];
+00301C 430B     	JSR     	@R3			;int ret = cdb_exec_cmd2(0,cmd,resp);//L004762
 00301E E400     	MOV     	#00,R4		;
 003020 6403     	MOV     	R0,R4			;
 003022 62F3     	MOV     	R15,R2		;
@@ -5563,10 +5629,10 @@ L002FFC:							;
 003026 6322     	MOV.L   	@R2,R3		;
 003028 D208     	MOV.L   	@(#020,PC),R2	;
 00302A 2329     	AND     	R2,R3			;
-00302C 2E32     	MOV.L   	R3,@R14		;
+00302C 2E32     	MOV.L   	R3,@R14		;*twn = *(u32*)resp & 0x00FFFFFF;
 00302E 7F10     	ADD     	#10,R15		;
 003030 4F26     	LDS.L   	@R15+,PR		;
-003032 000B     	RTS     				;
+003032 000B     	RTS     				;return ret;
 003034 6EF6     	MOV.L   	@R15+,R14		;
 003036 0082
 003038 00003DE4
@@ -5575,19 +5641,21 @@ L002FFC:							;
 003044 00004750
 003048 00004762
 00304C 00FFFFFF
+
+L003050:							;int cdb_play_disc_cmd(u8* param)//param-R4
 003050 2FE6     	MOV.L   	R14,@-R15		;
 003052 6E43     	MOV     	R4,R14		;
 003054 4F22     	STS.L   	PR,@-R15		;
 003056 7FF8     	ADD     	#F8,R15		;
-003058 D325     	MOV.L   	@(#094,PC),R3	;
-00305A 430B     	JSR     	@R3			;
+003058 D325     	MOV.L   	@(#094,PC),R3	;u16 cmd[4];
+00305A 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
 00305C 64F3     	MOV     	R15,R4		;
 00305E 62F3     	MOV     	R15,R2		;
 003060 E310     	MOV     	#10,R3		;
 003062 65F3     	MOV     	R15,R5		;
-003064 2230     	MOV.B   	R3,@R2		;
+003064 2230     	MOV.B   	R3,@R2		;cmd[0] = 0x10<<8;
 003066 7501     	ADD     	#01,R5		;
-003068 B013     	BRS     	#0026			;
+003068 B013     	BRS     	L003092		;cdb_set_play_pos(&param[0],(u8*)&cmd[1]);//L003092
 00306A 64E3     	MOV     	R14,R4		;
 00306C 62F3     	MOV     	R15,R2		;
 00306E E010     	MOV     	#10,R0		;
@@ -5596,88 +5664,93 @@ L002FFC:							;
 003074 03EC     	MOV.B   	@(R0,R14),R3	;
 003076 7505     	ADD     	#05,R5		;
 003078 6033     	MOV     	R3,R0			;
-00307A 8024     	MOV.B   	R0,@(#04,R2)	;
-00307C B009     	BRS     	#0012			;
+00307A 8024     	MOV.B   	R0,@(#04,R2)	;cmd[2] = param[16]<<8;
+00307C B009     	BRS     	L003092		;cdb_set_play_pos(&param[8],(u8*)&cmd[5]);//L003092
 00307E 7408     	ADD     	#08,R4		;
 003080 65F3     	MOV     	R15,R5		;
 003082 D31C     	MOV.L   	@(#070,PC),R3	;
-003084 430B     	JSR     	@R3			;
+003084 430B     	JSR     	@R3			;return cdb_exec_cmd(0x0000,cmd);//L004788
 003086 E400     	MOV     	#00,R4		;
 003088 6403     	MOV     	R0,R4			;
 00308A 7F08     	ADD     	#08,R15		;
 00308C 4F26     	LDS.L   	@R15+,PR		;
 00308E 000B     	RTS     				;
 003090 6EF6     	MOV.L   	@R15+,R14		;
+
+L003092:							;void cdb_set_play_pos(u8* src,u8* dst)//src-R4,dst-R
 003092 4F22     	STS.L   	PR,@-R15		;
-003094 A036     	BRA     	#006C			;
+003094 A036     	BRA     	L003104		;switch (src[0]) {
 003096 6042     	MOV.L   	@R4,R0		;
-003098 E200     	MOV     	#00,R2		;
-00309A 2520     	MOV.B   	R2,@R5		;
+L003098:
+003098 E200     	MOV     	#00,R2		;case 0x02:
+00309A 2520     	MOV.B   	R2,@R5		;  dst[0] = 0x00;
 00309C 8444     	MOV.B   	@(#04,R4),R0	;
 00309E 6303     	MOV     	R0,R3			;
-0030A0 8051     	MOV.B   	R0,@(#01,R5)	;
+0030A0 8051     	MOV.B   	R0,@(#01,R5)	;  dst[1] = src[4];
 0030A2 8445     	MOV.B   	@(#05,R4),R0	;
-0030A4 6303     	MOV     	R0,R3			;
-0030A6 A012     	BRA     	#0024			;
+0030A4 6303     	MOV     	R0,R3			;  dst[2] = src[5];
+0030A6 A012     	BRA     	L0030CE		;  break;
 0030A8 0009     	NOP     				;
-0030AA 6043     	MOV     	R4,R0			;
+L0030AA:
+0030AA 6043     	MOV     	R4,R0			;case 0x01:
 0030AC 7004     	ADD     	#04,R0		;
 0030AE 8401     	MOV.B   	@(#01,R0),R0	;
 0030B0 600C     	EXTU.B   	R0,R0			;
 0030B2 CB80     	OR      	#80,R0		;
 0030B4 600C     	EXTU.B   	R0,R0			;
-0030B6 2500     	MOV.B   	R0,@R5		;
+0030B6 2500     	MOV.B   	R0,@R5		;  dst[0] = src[5] | 0x80;
 0030B8 6343     	MOV     	R4,R3			;
 0030BA 7304     	ADD     	#04,R3		;
 0030BC 8432     	MOV.B   	@(#02,R3),R0	;
 0030BE 6203     	MOV     	R0,R2			;
 0030C0 6023     	MOV     	R2,R0			;
-0030C2 8051     	MOV.B   	R0,@(#01,R5)	;
+0030C2 8051     	MOV.B   	R0,@(#01,R5)	;  dst[1] = src[6];
 0030C4 6343     	MOV     	R4,R3			;
 0030C6 7304     	ADD     	#04,R3		;
 0030C8 8433     	MOV.B   	@(#03,R3),R0	;
 0030CA 6203     	MOV     	R0,R2			;
-0030CC 6023     	MOV     	R2,R0			;
-0030CE A023     	BRA     	#0046			;
+0030CC 6023     	MOV     	R2,R0			;  dst[2] = src[7];
+L0030CE:
+0030CE A023     	BRA     	L003118		;  break;
 0030D0 8052     	MOV.B   	R0,@(#02,R5)	;
-0030D2 6153     	MOV     	R5,R1			;
+L0030D2:
+0030D2 6153     	MOV     	R5,R1			;case 0x03:
 0030D4 D208     	MOV.L   	@(#020,PC),R2	;
 0030D6 D309     	MOV.L   	@(#024,PC),R3	;
-0030D8 430B     	JSR     	@R3			;
+0030D8 430B     	JSR     	@R3			;  cdb_mem_copy(3,dst,L004C37);//L0046DC
 0030DA E003     	MOV     	#03,R0		;
-0030DC A01C     	BRA     	#0038			;
+0030DC A01C     	BRA     	L003118		;  break;
 0030DE 0009     	NOP     				;
-0030E0 6153     	MOV     	R5,R1			;
-0030E2 D207     	MOV.L   	@(#01C,PC),R2	;
+L0030E0:
+0030E0 6153     	MOV     	R5,R1			;case 0x00:
+0030E2 D207     	MOV.L   	@(#01C,PC),R2	;default:
 0030E4 D305     	MOV.L   	@(#014,PC),R3	;
-0030E6 430B     	JSR     	@R3			;
+0030E6 430B     	JSR     	@R3			;  cdb_mem_copy(3,dst,L004C34);//L0046DC
 0030E8 E003     	MOV     	#03,R0		;
-0030EA A015     	BRA     	#002A			;
-0030EC 0009     	NOP     				;
+0030EA A015     	BRA     	L003118		;  break;
+0030EC 0009     	NOP     				;}
 0030EE 631C
-0030F0 0000     	
-0030F2 4750     	
-0030F4 0000     	
-0030F6 4788     	
-0030F8 0000     	
-0030FA 4C37
-0030FC 0000     	
-0030FE 46DC     	
-003100 0000     	
-003102 4C34     	
+0030F0 00004750
+0030F4 00004788
+0030F8 00004C37
+0030FC 000046DC
+003100 00004C34
+L003104:
 003104 8800     	CMP/EQ  	#00,R0		;
-003106 89EB     	BT      	#1D6			;
+003106 89EB     	BT      	L0030E0		;
 003108 8801     	CMP/EQ  	#01,R0		;
-00310A 89CE     	BT      	#19C			;
+00310A 89CE     	BT      	L0030AA		;
 00310C 8802     	CMP/EQ  	#02,R0		;
-00310E 89C3     	BT      	#186			;
+00310E 89C3     	BT      	L003098		;
 003110 8803     	CMP/EQ  	#03,R0		;
-003112 89DE     	BT      	#1BC			;
-003114 AFE4     	BRA     	#1FC8			;
+003112 89DE     	BT      	L0030D2		;
+003114 AFE4     	BRA     	L0030E0		;
 003116 0009     	NOP     				;
+L003118:
 003118 4F26     	LDS.L   	@R15+,PR		;
 00311A 000B     	RTS     				;
 00311C 0009     	NOP     				;
+
 00311E 2FE6     	MOV.L   	R14,@-R15		;
 003120 4F22     	STS.L   	PR,@-R15		;
 003122 6E43     	MOV     	R4,R14		;
@@ -5732,30 +5805,33 @@ L002FFC:							;
 003184 0000     	
 003186 4750     	
 003188 0000     	
-00318A 4788     	
+00318A 4788
+
+L00318C:							;int cdb_set_cd_device_connection_cmd(u8 filtno)
 00318C 2FE6     	MOV.L   	R14,@-R15		;
 00318E 6E43     	MOV     	R4,R14		;
 003190 4F22     	STS.L   	PR,@-R15		;
 003192 7FF8     	ADD     	#F8,R15		;
-003194 D317     	MOV.L   	@(#05C,PC),R3	;
-003196 430B     	JSR     	@R3			;
+003194 D317     	MOV.L   	@(#05C,PC),R3	;u16 cmd[4];
+003196 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
 003198 64F3     	MOV     	R15,R4		;
 00319A 62F3     	MOV     	R15,R2		;
 00319C E330     	MOV     	#30,R3		;
 00319E 6EEC     	EXTU.B   	R14,R14		;
 0031A0 65F3     	MOV     	R15,R5		;
-0031A2 2230     	MOV.B   	R3,@R2		;
+0031A2 2230     	MOV.B   	R3,@R2		;cmd[0] = 0x30<<8;
 0031A4 60E3     	MOV     	R14,R0		;
 0031A6 62F3     	MOV     	R15,R2		;
-0031A8 8024     	MOV.B   	R0,@(#04,R2)	;
+0031A8 8024     	MOV.B   	R0,@(#04,R2)	;cmd[2] = filtno<<8;
 0031AA D313     	MOV.L   	@(#04C,PC),R3	;
-0031AC 430B     	JSR     	@R3			;
+0031AC 430B     	JSR     	@R3			;return cdb_exec_cmd(HIRQ_ESEL,cmd);//L004788
 0031AE E440     	MOV     	#40,R4		;
 0031B0 6403     	MOV     	R0,R4			;
 0031B2 7F08     	ADD     	#08,R15		;
 0031B4 4F26     	LDS.L   	@R15+,PR		;
 0031B6 000B     	RTS     				;
 0031B8 6EF6     	MOV.L   	@R15+,R14		;
+
 0031BA 2FE6     	MOV.L   	R14,@-R15		;
 0031BC 4F22     	STS.L   	PR,@-R15		;
 0031BE 6E43     	MOV     	R4,R14		;
@@ -5785,10 +5861,8 @@ L002FFC:							;
 0031EE 4F26     	LDS.L   	@R15+,PR		;
 0031F0 000B     	RTS     				;
 0031F2 6EF6     	MOV.L   	@R15+,R14		;
-0031F4 0000     	
-0031F6 4750     	
-0031F8 0000     	
-0031FA 4788     	
+0031F4 00004750
+0031F8 00004788
 0031FC 0000     	
 0031FE 4762     	
 003200 2FE6     	MOV.L   	R14,@-R15		;
@@ -6183,20 +6257,22 @@ L002FFC:							;
 00350A 000B     	RTS     				;
 00350C 6EF6     	MOV.L   	@R15+,R14		;
 00350E 18D7
-003510 0000     	
-003512 4750     	
-003514 0000     	
-003516 4788     	
-003518 0000     	
-00351A 4762     	
+003510 0000
+003512 4750
+003514 0000
+003516 4788
+003518 0000
+00351A 4762
+
+L00351C:							;int cdb_reset_selector_cmd(u8 flags,u8 bufno)
 00351C 2FE6     	MOV.L   	R14,@-R15		;
 00351E 6E43     	MOV     	R4,R14		;
 003520 2FD6     	MOV.L   	R13,@-R15		;
 003522 6D53     	MOV     	R5,R13		;
 003524 4F22     	STS.L   	PR,@-R15		;
 003526 7FF8     	ADD     	#F8,R15		;
-003528 D30B     	MOV.L   	@(#02C,PC),R3	;
-00352A 430B     	JSR     	@R3			;
+003528 D30B     	MOV.L   	@(#02C,PC),R3	;u16 cmd[4];
+00352A 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
 00352C 64F3     	MOV     	R15,R4		;
 00352E 62F3     	MOV     	R15,R2		;
 003530 E348     	MOV     	#48,R3		;
@@ -6207,11 +6283,11 @@ L002FFC:							;
 00353A 60E3     	MOV     	R14,R0		;
 00353C 62F3     	MOV     	R15,R2		;
 00353E 63F3     	MOV     	R15,R3		;
-003540 8021     	MOV.B   	R0,@(#01,R2)	;
+003540 8021     	MOV.B   	R0,@(#01,R2)	;cmd[0] = (0x48<<8) | flags;
 003542 60D3     	MOV     	R13,R0		;
-003544 8034     	MOV.B   	R0,@(#04,R3)	;
+003544 8034     	MOV.B   	R0,@(#04,R3)	;cmd[2] = bufno<<8;
 003546 D305     	MOV.L   	@(#014,PC),R3	;
-003548 430B     	JSR     	@R3			;
+003548 430B     	JSR     	@R3			;return cdb_exec_cmd(HIRQ_ESEL,cmd);//L004788
 00354A E440     	MOV     	#40,R4		;
 00354C 6403     	MOV     	R0,R4			;
 00354E 7F08     	ADD     	#08,R15		;
@@ -6219,10 +6295,9 @@ L002FFC:							;
 003552 6DF6     	MOV.L   	@R15+,R13		;
 003554 000B     	RTS     				;
 003556 6EF6     	MOV.L   	@R15+,R14		;
-003558 0000     	
-00355A 4750     	
-00355C 0000     	
-00355E 4788     	
+003558 00004750
+00355C 00004788
+
 003560 2FE6     	MOV.L   	R14,@-R15		;
 003562 6E63     	MOV     	R6,R14		;
 003564 2FD6     	MOV.L   	R13,@-R15		;
@@ -6268,6 +6343,8 @@ L002FFC:							;
 0035B4 6DF6     	MOV.L   	@R15+,R13		;
 0035B6 000B     	RTS     				;
 0035B8 6EF6     	MOV.L   	@R15+,R14		;
+
+L0035BA:							;int cdb_get_sector_number_cmd(s32 bufno,s32* snum)
 0035BA 2FE6     	MOV.L   	R14,@-R15		;
 0035BC 2FD6     	MOV.L   	R13,@-R15		;
 0035BE 6E43     	MOV     	R4,R14		;
@@ -6275,8 +6352,8 @@ L002FFC:							;
 0035C2 6D53     	MOV     	R5,R13		;
 0035C4 7FF0     	ADD     	#F0,R15		;
 0035C6 64F3     	MOV     	R15,R4		;
-0035C8 D30E     	MOV.L   	@(#038,PC),R3	;
-0035CA 430B     	JSR     	@R3			;
+0035C8 D30E     	MOV.L   	@(#038,PC),R3	;u16 cmd[4];
+0035CA 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
 0035CC 7408     	ADD     	#08,R4		;
 0035CE 62F3     	MOV     	R15,R2		;
 0035D0 E351     	MOV     	#51,R3		;
@@ -6286,12 +6363,12 @@ L002FFC:							;
 0035D8 7208     	ADD     	#08,R2		;
 0035DA 60E3     	MOV     	R14,R0		;
 0035DC 7508     	ADD     	#08,R5		;
-0035DE 2230     	MOV.B   	R3,@R2		;
+0035DE 2230     	MOV.B   	R3,@R2		;cmd[0] = 0x51<<8;
 0035E0 62F3     	MOV     	R15,R2		;
 0035E2 7208     	ADD     	#08,R2		;
-0035E4 8024     	MOV.B   	R0,@(#04,R2)	;
-0035E6 D308     	MOV.L   	@(#020,PC),R3	;
-0035E8 430B     	JSR     	@R3			;
+0035E4 8024     	MOV.B   	R0,@(#04,R2)	;cmd[2] = bufno<<8;
+0035E6 D308     	MOV.L   	@(#020,PC),R3	;u16 resp[4];
+0035E8 430B     	JSR     	@R3			;int ret = cdb_exec_cmd2(0,cmd,resp);//L004762
 0035EA E400     	MOV     	#00,R4		;
 0035EC 6403     	MOV     	R0,R4			;
 0035EE 62F3     	MOV     	R15,R2		;
@@ -6299,16 +6376,14 @@ L002FFC:							;
 0035F2 6303     	MOV     	R0,R3			;
 0035F4 633D     	EXTU.W   	R3,R3			;
 0035F6 6043     	MOV     	R4,R0			;
-0035F8 2D32     	MOV.L   	R3,@R13		;
+0035F8 2D32     	MOV.L   	R3,@R13		;*snum = (s32)resp[3];
 0035FA 7F10     	ADD     	#10,R15		;
 0035FC 4F26     	LDS.L   	@R15+,PR		;
 0035FE 6DF6     	MOV.L   	@R15+,R13		;
-003600 000B     	RTS     				;
+003600 000B     	RTS     				;return ret;
 003602 6EF6     	MOV.L   	@R15+,R14		;
-003604 0000     	
-003606 4750     	
-003608 0000     	
-00360A 4762     	
+003604 00004750
+003608 00004762
 00360C 2FE6     	MOV.L   	R14,@-R15		;
 00360E 6E53     	MOV     	R5,R14		;
 003610 2FD6     	MOV.L   	R13,@-R15		;
@@ -6664,7 +6739,7 @@ L002FFC:							;
 0038CC 6EF6     	MOV.L   	@R15+,R14		;
 
 ;CdcRet CDC_GetdelSctData (Sint32 bufno, Sint32 spos, Sint 32 snum)
-L0038CE:							;int cdb_get_del_sector_data(u8 bufno,u16 spos,u16 snum)//bufno-R4,spos-R5,snum-R6
+L0038CE:							;int cdb_get_del_sector_data_cmd(u8 bufno,u16 spos,u16 snum)//bufno-R4,spos-R5,snum-R6
 0038CE 2FE6     	MOV.L   	R14,@-R15		;
 0038D0 2FD6     	MOV.L   	R13,@-R15		;
 0038D2 6E53     	MOV     	R5,R14		;
@@ -6830,13 +6905,15 @@ L0038CE:							;int cdb_get_del_sector_data(u8 bufno,u16 spos,u16 snum)//bufno-R
 003A16 6DF6     	MOV.L   	@R15+,R13		;
 003A18 000B     	RTS     				;
 003A1A 6EF6     	MOV.L   	@R15+,R14		;
+
+L003A1C:							;int cdb_get_copy_error_cmd(u32* err)//err-R4
 003A1C 2FE6     	MOV.L   	R14,@-R15		;
 003A1E 6E43     	MOV     	R4,R14		;
 003A20 4F22     	STS.L   	PR,@-R15		;
 003A22 7FF0     	ADD     	#F0,R15		;
 003A24 64F3     	MOV     	R15,R4		;
-003A26 D30C     	MOV.L   	@(#030,PC),R3	;
-003A28 430B     	JSR     	@R3			;
+003A26 D30C     	MOV.L   	@(#030,PC),R3	;u16 cmd[4];
+003A28 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
 003A2A 7408     	ADD     	#08,R4		;
 003A2C 62F3     	MOV     	R15,R2		;
 003A2E E367     	MOV     	#67,R3		;
@@ -6844,9 +6921,9 @@ L0038CE:							;int cdb_get_del_sector_data(u8 bufno,u16 spos,u16 snum)//bufno-R
 003A32 65F3     	MOV     	R15,R5		;
 003A34 7208     	ADD     	#08,R2		;
 003A36 7508     	ADD     	#08,R5		;
-003A38 2230     	MOV.B   	R3,@R2		;
-003A3A D309     	MOV.L   	@(#024,PC),R3	;
-003A3C 430B     	JSR     	@R3			;
+003A38 2230     	MOV.B   	R3,@R2		;cmd[0] = 0x6700;
+003A3A D309     	MOV.L   	@(#024,PC),R3	;u16 resp[4];
+003A3C 430B     	JSR     	@R3			;int ret = cdb_exec_cmd2(0x0000,cmd,resp);//L004762
 003A3E E400     	MOV     	#00,R4		;
 003A40 6403     	MOV     	R0,R4			;
 003A42 62F3     	MOV     	R15,R2		;
@@ -6854,18 +6931,16 @@ L0038CE:							;int cdb_get_del_sector_data(u8 bufno,u16 spos,u16 snum)//bufno-R
 003A46 6303     	MOV     	R0,R3			;
 003A48 633C     	EXTU.B   	R3,R3			;
 003A4A 6043     	MOV     	R4,R0			;
-003A4C 2E32     	MOV.L   	R3,@R14		;
+003A4C 2E32     	MOV.L   	R3,@R14		;*err = resp[0] & 0xFF;
 003A4E 7F10     	ADD     	#10,R15		;
 003A50 4F26     	LDS.L   	@R15+,PR		;
-003A52 000B     	RTS     				;
+003A52 000B     	RTS     				;return ret;
 003A54 6EF6     	MOV.L   	@R15+,R14		;
 003A56 0100     	
-003A58 0000     	
-003A5A 4750     	
+003A58 00004750
 003A5C 0000     	
 003A5E 4788     	
-003A60 0000     	
-003A62 4762     	
+003A60 00004762
 003A64 2FE6     	MOV.L   	R14,@-R15		;
 003A66 6E53     	MOV     	R5,R14		;
 003A68 2FD6     	MOV.L   	R13,@-R15		;
@@ -7063,24 +7138,26 @@ L0038CE:							;int cdb_get_del_sector_data(u8 bufno,u16 spos,u16 snum)//bufno-R
 003BE8 6DF6     	MOV.L   	@R15+,R13		;
 003BEA 000B     	RTS     				;
 003BEC 6EF6     	MOV.L   	@R15+,R14		;
+
+L003BEE:							;int cdb_abort_file_cmd()
 003BEE 4F22     	STS.L   	PR,@-R15		;
 003BF0 7FF8     	ADD     	#F8,R15		;
-003BF2 D30B     	MOV.L   	@(#02C,PC),R3	;
-003BF4 430B     	JSR     	@R3			;
+003BF2 D30B     	MOV.L   	@(#02C,PC),R3	;u16 cmd[4];
+003BF4 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
 003BF6 64F3     	MOV     	R15,R4		;
 003BF8 62F3     	MOV     	R15,R2		;
 003BFA E375     	MOV     	#75,R3		;
-003BFC 2230     	MOV.B   	R3,@R2		;
+003BFC 2230     	MOV.B   	R3,@R2		;cmd[0] = 0x7500;
 003BFE 940A     	MOV.W   	@(#014,PC),R4	;
 003C00 D309     	MOV.L   	@(#024,PC),R3	;
-003C02 430B     	JSR     	@R3			;
+003C02 430B     	JSR     	@R3			;set_last_hirq(HIRQ_EFLS);//L003C76
 003C04 0009     	NOP     				;
 003C06 9406     	MOV.W   	@(#00C,PC),R4	;
 003C08 D306     	MOV.L   	@(#018,PC),R3	;
-003C0A 430B     	JSR     	@R3			;
+003C0A 430B     	JSR     	@R3			;int ret = cdb_exec_cmd(HIRQ_EFLS,cmd);//L004788
 003C0C 65F3     	MOV     	R15,R5		;
 003C0E 7F08     	ADD     	#08,R15		;
-003C10 4F26     	LDS.L   	@R15+,PR		;
+003C10 4F26     	LDS.L   	@R15+,PR		;return ret;
 003C12 000B     	RTS     				;
 003C14 6403     	MOV     	R0,R4			;
 003C16 0200
@@ -7088,12 +7165,9 @@ L0038CE:							;int cdb_get_del_sector_data(u8 bufno,u16 spos,u16 snum)//bufno-R
 003C1A FFFF
 003C1C 0000
 003C1E 3CA0
-003C20 0000
-003C22 4750
-003C24 0000
-003C26 4788
-003C28 0000
-003C2A 3C76
+003C20 00004750
+003C24 00004788
+003C28 00003C76
 
 L003C2C:							;
 003C2C D00A     	MOV.L   	@(#028,PC),R0	;
@@ -7102,8 +7176,8 @@ L003C2C:							;
 
 L003C32:							;u16 cdb_read_hirq()
 003C32 D00A     	MOV.L   	@(#028,PC),R0	; 
-003C34 000B     	RTS     				;
-003C36 6001     	MOV.W   	@R0,R0		;return CDB.HIRQ;
+003C34 000B     	RTS     				;return CDB.HIRQ;
+003C36 6001     	MOV.W   	@R0,R0		;
 
 L003C38:							;void cdb_ack_hirq(u16 mask)//mask-R4
 003C38 4F22     	STS.L   	PR,@-R15		;
@@ -7128,29 +7202,31 @@ L003C52:							;void cdb_clear_hirq(u16 mask)//mask-R4
 003C5C 25890008
 003C60 060003A4
 
-
+L003C64:							;void cdb_clear_hirq_for_initcd()
 003C64 4F22     	STS.L   	PR,@-R15		;
 003C66 9410     	MOV.W   	@(#020,PC),R4	;
-003C68 BFF3     	BRS     	#1FE6			;
+003C68 BFF3     	BRS     	L003C52		;cdb_clear_hirq(HIRQ_MPED | HIRQ_EFLS | HIRQ_ECPY | HIRQ_EHST | HIRQ_ESEL | HIRQ_CMOK);
 003C6A 0009     	NOP     				;
 003C6C E200     	MOV     	#00,R2		;
 003C6E D307     	MOV.L   	@(#01C,PC),R3	;
-003C70 4F26     	LDS.L   	@R15+,PR		;
+003C70 4F26     	LDS.L   	@R15+,PR		;last_hirq = 0x000; 
 003C72 000B     	RTS     				;
 003C74 2321     	MOV.W   	R2,@R3		;
+
+L003C76:							;void set_last_hirq(u16 hirq)
 003C76 644D     	EXTU.W   	R4,R4			;
 003C78 D304     	MOV.L   	@(#010,PC),R3	;
 003C7A D204     	MOV.L   	@(#010,PC),R2	;
 003C7C 6331     	MOV.W   	@R3,R3		;
-003C7E 234B     	OR      	R4,R3			;
+003C7E 234B     	OR      	R4,R3			;last_hirq |= hirg; 
 003C80 000B     	RTS     				;
 003C82 2231     	MOV.W   	R3,@R2		;
+
 003C84 D002     	MOV.L   	@(#008,PC),R0	;
 003C86 000B     	RTS     				;
 003C88 6001     	MOV.W   	@R0,R0		;
 003C8A 0BE1     	
-003C8C 0600     	
-003C8E 03A4     	MOV.B   	R10,@(R0,R3)	;
+003C8C 060003A4
 003C90 2589     	AND     	R8,R5			;
 003C92 000C     	MOV.B   	@(R0,R0),R0		;
 003C94 D30A     	MOV.L   	@(#028,PC),R3	;
@@ -7447,6 +7523,7 @@ L003EAA:
 003EB8 000B     	RTS     				;
 003EBA 6EF6     	MOV.L   	@R15+,R14		;
 
+L003EBC:							;int cdb_get_device_authentication_status_cmd(u8 type,u16* stat,u16* arg3)
 003EBC 2FE6     	MOV.L   	R14,@-R15		;
 003EBE 6E43     	MOV     	R4,R14		;
 003EC0 2FD6     	MOV.L   	R13,@-R15		;
@@ -7456,8 +7533,8 @@ L003EAA:
 003EC8 4F22     	STS.L   	PR,@-R15		;
 003ECA 7FF0     	ADD     	#F0,R15		;
 003ECC 64F3     	MOV     	R15,R4		;
-003ECE D313     	MOV.L   	@(#04C,PC),R3	;
-003ED0 430B     	JSR     	@R3			;
+003ECE D313     	MOV.L   	@(#04C,PC),R3	;u16 cmd[4];
+003ED0 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
 003ED2 7408     	ADD     	#08,R4		;
 003ED4 62F3     	MOV     	R15,R2		;
 003ED6 6EEC     	EXTU.B   	R14,R14		;
@@ -7467,20 +7544,20 @@ L003EAA:
 003EDE 7208     	ADD     	#08,R2		;
 003EE0 60E3     	MOV     	R14,R0		;
 003EE2 7508     	ADD     	#08,R5		;
-003EE4 2230     	MOV.B   	R3,@R2		;
+003EE4 2230     	MOV.B   	R3,@R2		;cmd[0] = 0xE1<<8;
 003EE6 62F3     	MOV     	R15,R2		;
 003EE8 7208     	ADD     	#08,R2		;
-003EEA 8023     	MOV.B   	R0,@(#03,R2)	;
-003EEC D30D     	MOV.L   	@(#034,PC),R3	;
-003EEE 430B     	JSR     	@R3			;
+003EEA 8023     	MOV.B   	R0,@(#03,R2)	;cmd[1] = type;
+003EEC D30D     	MOV.L   	@(#034,PC),R3	;u16 resp[4];
+003EEE 430B     	JSR     	@R3			;int ret = cdb_exec_cmd2(0x0000,cmd,resp);//L004762
 003EF0 E400     	MOV     	#00,R4		;
 003EF2 6403     	MOV     	R0,R4			;
 003EF4 62F3     	MOV     	R15,R2		;
 003EF6 8521     	MOV.W   	@(#02,R2),R0	;
 003EF8 6303     	MOV     	R0,R3			;
-003EFA 2C31     	MOV.W   	R3,@R12		;
+003EFA 2C31     	MOV.W   	R3,@R12		;*stat = resp[1];
 003EFC 63F3     	MOV     	R15,R3		;
-003EFE 8533     	MOV.W   	@(#06,R3),R0	;
+003EFE 8533     	MOV.W   	@(#06,R3),R0	;*arg3 = resp[3];
 003F00 6203     	MOV     	R0,R2			;
 003F02 622D     	EXTU.W   	R2,R2			;
 003F04 6043     	MOV     	R4,R0			;
@@ -7489,7 +7566,7 @@ L003EAA:
 003F0A 4F26     	LDS.L   	@R15+,PR		;
 003F0C 6CF6     	MOV.L   	@R15+,R12		;
 003F0E 6DF6     	MOV.L   	@R15+,R13		;
-003F10 000B     	RTS     				;
+003F10 000B     	RTS     				;return ret;
 003F12 6EF6     	MOV.L   	@R15+,R14		;
 003F14 00E0
 003F16 0800
@@ -7497,8 +7574,7 @@ L003EAA:
 003F1A 00E1
 003F1C 00004750
 003F20 00004788
-003F24 0000
-003F26 4762
+003F24 00004762
 003F28 2FE6     	MOV.L   	R14,@-R15		;
 003F2A 6E53     	MOV     	R5,R14		;
 003F2C 2FD6     	MOV.L   	R13,@-R15		;
@@ -7570,8 +7646,496 @@ L003F8E:
 003FB0 00004C3C
 003FB4 00004714
 003FB8 00003C64
+003FBA 3C64     	DIV1??    	R6,R12		;
+003FBC 4F22     	STS.L   	PR,@-R15		;
+003FBE 7FF0     	ADD     	#F0,R15		;
+003FC0 D31B     	MOV.L   	@(#06C,PC),R3		;
+003FC2 430B     	JSR     	@R3		;
+003FC4 E400     	MOV     	#00,R4		;
+003FC6 9231     	MOV.W   	@(#062,PC),R2		;
+003FC8 A002     	BRA     	#0004		;
+003FCA 0009     	NOP     			;
+003FCC 62F2     	MOV.L   	@R15,R2		;
+003FCE 72FF     	ADD     	#FF,R2		;
+003FD0 2F22     	MOV.L   	R2,@R15		;
+003FD2 63F2     	MOV.L   	@R15,R3		;
+003FD4 4315     	CMP/PL  	R3		;
+003FD6 89F9     	BT      	#1F2		;
+003FD8 D316     	MOV.L   	@(#058,PC),R3		;
+003FDA 430B     	JSR     	@R3		;
+003FDC 0009     	NOP     			;
+003FDE 9426     	MOV.W   	@(#04C,PC),R4		;
+003FE0 D315     	MOV.L   	@(#054,PC),R3		;
+003FE2 430B     	JSR     	@R3		;
+003FE4 0009     	NOP     			;
+003FE6 64F3     	MOV     	R15,R4		;
+003FE8 D314     	MOV.L   	@(#050,PC),R3		;
+003FEA 430B     	JSR     	@R3		;
+003FEC 7404     	ADD     	#04,R4		;
+003FEE 7F10     	ADD     	#10,R15		;
+003FF0 4F26     	LDS.L   	@R15+,PR		;
+003FF2 000B     	RTS     			;
+003FF4 6403     	MOV     	R0,R4		;
+003FF6 6243     	MOV     	R4,R2		;
+003FF8 2FE6     	MOV.L   	R14,@-R15		;
+003FFA 6E53     	MOV     	R5,R14		;
+003FFC 4F22     	STS.L   	PR,@-R15		;
+003FFE 7FF0     	ADD     	#F0,R15		;
+004000 61F3     	MOV     	R15,R1		;
+004002 D30F     	MOV.L   	@(#03C,PC),R3		;
+004004 7108     	ADD     	#08,R1		;
+004006 430B     	JSR     	@R3		;
+004008 E008     	MOV     	#08,R0		;
+00400A 66F3     	MOV     	R15,R6		;
+00400C 65F3     	MOV     	R15,R5		;
+00400E D30D     	MOV.L   	@(#034,PC),R3		;
+004010 7508     	ADD     	#08,R5		;
+004012 430B     	JSR     	@R3		;
+004014 E400     	MOV     	#00,R4		;
+004016 6403     	MOV     	R0,R4		;
+004018 62F3     	MOV     	R15,R2		;
+00401A 61E3     	MOV     	R14,R1		;
+00401C D308     	MOV.L   	@(#020,PC),R3		;
+00401E 430B     	JSR     	@R3		;
+004020 E008     	MOV     	#08,R0		;
+004022 6043     	MOV     	R4,R0		;
+004024 7F10     	ADD     	#10,R15		;
+004026 4F26     	LDS.L   	@R15+,PR		;
+004028 000B     	RTS     			;
+00402A 6EF6     	MOV.L   	@R15+,R14		;
+00402C 2904     	MOV.B   	R0,@-R9		;
+00402E 0BC1     	
+004030 0000     	
+004032 3C94     	DIV1??    	R9,R12		;
+004034 0000     	
+004036 3C64     	DIV1??    	R6,R12		;
+004038 0000     	
+00403A 3C76     	CMP/HI 	R7,R12		;
+00403C 0000     	
+00403E 2CB8     	TST     	R11,R12		;
+004040 0000     	
+004042 46DC     	
+004044 0000     	
+004046 4762     	
+004048 4F22     	STS.L   	PR,@-R15		;
+00404A 7FF0     	ADD     	#F0,R15		;
+00404C 2F42     	MOV.L   	R4,@R15		;
+00404E 64F3     	MOV     	R15,R4		;
+004050 D30E     	MOV.L   	@(#038,PC),R3		;
+004052 430B     	JSR     	@R3			;
+004054 7408     	ADD     	#08,R4		;
+004056 62F3     	MOV     	R15,R2		;
+004058 9316     	MOV.W   	@(#02C,PC),R3		;
+00405A 65F3     	MOV     	R15,R5		;
+00405C 7208     	ADD     	#08,R2		;
+00405E 7508     	ADD     	#08,R5		;
+004060 2230     	MOV.B   	R3,@R2		;
+004062 D30B     	MOV.L   	@(#02C,PC),R3		;
+004064 430B     	JSR     	@R3			;
+004066 E400     	MOV     	#00,R4		;
+004068 1F01     	MOV.L   	R0,@(#4,R15)	;
+00406A D30A     	MOV.L   	@(#028,PC),R3	;
+00406C 430B     	JSR     	@R3			;
+00406E 64F2     	MOV.L   	@R15,R4		;
+004070 50F1     	MOV.L   	@(#04,R15),R0	;
+004072 7F10     	ADD     	#10,R15		;
+004074 4F26     	LDS.L   	@R15+,PR		;
+004076 000B     	RTS     				;
+004078 0009     	NOP     				;
+00407A 4F22     	STS.L   	PR,@-R15		;
+00407C D305     	MOV.L   	@(#014,PC),R3	;
+00407E 430B     	JSR     	@R3			;
+004080 0009     	NOP     				;
+004082 4F26     	LDS.L   	@R15+,PR		;
+004084 000B     	RTS     				;
+004086 E000     	MOV     	#00,R0		;
+004088 0090     	
+00408A 287D
+00408C 0000     	
+00408E 4750     	
+004090 0000     	
+004092 4898     	
+004094 0000     	
+004096 4962     	
+004098 4F22     	STS.L   	PR,@-R15		;
+00409A 7FEC     	ADD     	#EC,R15		;
+00409C 2F42     	MOV.L   	R4,@R15		;
+00409E 64F3     	MOV     	R15,R4		;
+0040A0 D31B     	MOV.L   	@(#06C,PC),R3	;
+0040A2 430B     	JSR     	@R3			;
+0040A4 740C     	ADD     	#0C,R4		;
+0040A6 62F3     	MOV     	R15,R2		;
+0040A8 932F     	MOV.W   	@(#05E,PC),R3	;
+0040AA 66F3     	MOV     	R15,R6		;
+0040AC 65F3     	MOV     	R15,R5		;
+0040AE 720C     	ADD     	#0C,R2		;
+0040B0 7604     	ADD     	#04,R6		;
+0040B2 750C     	ADD     	#0C,R5		;
+0040B4 2230     	MOV.B   	R3,@R2		;
+0040B6 D317     	MOV.L   	@(#05C,PC),R3	;
+0040B8 430B     	JSR     	@R3			;
+0040BA E400     	MOV     	#00,R4		;
+0040BC 6403     	MOV     	R0,R4			;
+0040BE 63F3     	MOV     	R15,R3		;
+0040C0 62F2     	MOV.L   	@R15,R2		;
+0040C2 7304     	ADD     	#04,R3		;
+0040C4 6132     	MOV.L   	@R3,R1		;
+0040C6 2212     	MOV.L   	R1,@R2		;
+0040C8 63F2     	MOV.L   	@R15,R3		;
+0040CA D213     	MOV.L   	@(#04C,PC),R2	;
+0040CC 6132     	MOV.L   	@R3,R1		;
+0040CE 2129     	AND     	R2,R1			;
+0040D0 2312     	MOV.L   	R1,@R3		;
+0040D2 7F14     	ADD     	#14,R15		;
+0040D4 4F26     	LDS.L   	@R15+,PR		;
+0040D6 000B     	RTS     				;
+0040D8 6043     	MOV     	R4,R0			;
+0040DA 4F22     	STS.L   	PR,@-R15		;
+0040DC 7FF4     	ADD     	#F4,R15		;
+0040DE 2F42     	MOV.L   	R4,@R15		;
+0040E0 64F3     	MOV     	R15,R4		;
+0040E2 D30B     	MOV.L   	@(#02C,PC),R3	;
+0040E4 430B     	JSR     	@R3			;
+0040E6 7404     	ADD     	#04,R4		;
+0040E8 62F3     	MOV     	R15,R2		;
+0040EA 65F3     	MOV     	R15,R5		;
+0040EC 63F2     	MOV.L   	@R15,R3		;
+0040EE 7204     	ADD     	#04,R2		;
+0040F0 7504     	ADD     	#04,R5		;
+0040F2 2232     	MOV.L   	R3,@R2		;
+0040F4 63F3     	MOV     	R15,R3		;
+0040F6 9209     	MOV.W   	@(#012,PC),R2	;
+0040F8 7304     	ADD     	#04,R3		;
+0040FA 2320     	MOV.B   	R2,@R3		;
+0040FC D307     	MOV.L   	@(#01C,PC),R3	;
+0040FE 430B     	JSR     	@R3			;
+004100 E400     	MOV     	#00,R4		;
+004102 7F0C     	ADD     	#0C,R15		;
+004104 4F26     	LDS.L   	@R15+,PR		;
+004106 000B     	RTS     				;
+004108 0009     	NOP     				;
+00410A 0091     	
+00410C 0092     	
+00410E FCBB     	
+004110 0000     	
+004112 4750     	
+004114 0000     	
+004116 4804
+004118 00FF
+00411A FFFF     	
+00411C 0000     	
+00411E 4898     	
 
+L004120:							;int cdb_mpeg_init(u8 param)
+004120 4F22     	STS.L   	PR,@-R15		;
+004122 7FF4     	ADD     	#F4,R15		;
+004124 2F42     	MOV.L   	R4,@R15		;
+004126 64F3     	MOV     	R15,R4		;
+004128 D321     	MOV.L   	@(#084,PC),R3	;u16 cmd[4];
+00412A 430B     	JSR     	@R3			;mem_clear8(cmd);//L004750
+00412C 7404     	ADD     	#04,R4		;
+00412E 62F3     	MOV     	R15,R2		;
+004130 933B     	MOV.W   	@(#076,PC),R3	;
+004132 65F3     	MOV     	R15,R5		;
+004134 7204     	ADD     	#04,R2		;
+004136 2230     	MOV.B   	R3,@R2		;cmd[0] = 0x9300;
+004138 62F3     	MOV     	R15,R2		;
+00413A 63F2     	MOV.L   	@R15,R3		;
+00413C 7204     	ADD     	#04,R2		;
+00413E 603C     	EXTU.B   	R3,R0			;
+004140 8023     	MOV.B   	R0,@(#03,R2)	;cmd[1] = param;
+004142 9433     	MOV.W   	@(#066,PC),R4	;
+004144 D31B     	MOV.L   	@(#06C,PC),R3	;
+004146 430B     	JSR     	@R3			;return cdb_exec_cmd3(HIRQ_MPED,cmd);//L0048EC
+004148 7504     	ADD     	#04,R5		;
+00414A 7F0C     	ADD     	#0C,R15		;
+00414C 4F26     	LDS.L   	@R15+,PR		;
+00414E 000B     	RTS     				;
+004150 0009     	NOP     				;
 
+004152 4F22     	STS.L   	PR,@-R15		;
+004154 7FE8     	ADD     	#E8,R15		;
+004156 1F43     	MOV.L   	R4,@(#C,R15)	;
+004158 2F52     	MOV.L   	R5,@R15		;
+00415A 64F3     	MOV     	R15,R4		;
+00415C 1F62     	MOV.L   	R6,@(#8,R15)	;
+00415E 1F71     	MOV.L   	R7,@(#4,R15)	;
+004160 D313     	MOV.L   	@(#04C,PC),R3	;
+004162 430B     	JSR     	@R3			;
+004164 7410     	ADD     	#10,R4		;
+004166 62F3     	MOV     	R15,R2		;
+004168 9321     	MOV.W   	@(#042,PC),R3	;
+00416A 65F3     	MOV     	R15,R5		;
+00416C 7210     	ADD     	#10,R2		;
+00416E 7510     	ADD     	#10,R5		;
+004170 2230     	MOV.B   	R3,@R2		;
+004172 62F3     	MOV     	R15,R2		;
+004174 53F3     	MOV.L   	@(#0C,R15),R3	;
+004176 7210     	ADD     	#10,R2		;
+004178 633C     	EXTU.B   	R3,R3			;
+00417A 6033     	MOV     	R3,R0			;
+00417C 8021     	MOV.B   	R0,@(#01,R2)	;
+00417E 63F3     	MOV     	R15,R3		;
+004180 62F2     	MOV.L   	@R15,R2		;
+004182 7310     	ADD     	#10,R3		;
+004184 602C     	EXTU.B   	R2,R0			;
+004186 8032     	MOV.B   	R0,@(#02,R3)	;
+004188 63F3     	MOV     	R15,R3		;
+00418A 52F2     	MOV.L   	@(#08,R15),R2	;
+00418C 7310     	ADD     	#10,R3		;
+00418E 602C     	EXTU.B   	R2,R0			;
+004190 8033     	MOV.B   	R0,@(#03,R3)	;
+004192 63F3     	MOV     	R15,R3		;
+004194 52F1     	MOV.L   	@(#04,R15),R2	;
+004196 7310     	ADD     	#10,R3		;
+004198 602C     	EXTU.B   	R2,R0			;
+00419A 8034     	MOV.B   	R0,@(#04,R3)	;
+00419C D306     	MOV.L   	@(#018,PC),R3	;
+00419E 430B     	JSR     	@R3			;
+0041A0 E400     	MOV     	#00,R4		;
+0041A2 7F18     	ADD     	#18,R15		;
+0041A4 4F26     	LDS.L   	@R15+,PR		;
+0041A6 000B     	RTS     				;
+0041A8 0009     	NOP     				;
+0041AA 0093     	
+0041AC 0800     	
+0041AE 0094
+0041B0 00004750
+0041B4 000048EC
+0041B8 0000     	
+0041BA 4898     	
+0041BC 4F22     	STS.L   	PR,@-R15		;
+0041BE 7FE8     	ADD     	#E8,R15		;
+0041C0 1F43     	MOV.L   	R4,@(#C,R15)	;
+0041C2 64F3     	MOV     	R15,R4		;
+0041C4 2F52     	MOV.L   	R5,@R15		;
+0041C6 1F62     	MOV.L   	R6,@(#8,R15)	;
+0041C8 1F71     	MOV.L   	R7,@(#4,R15)	;
+0041CA D313     	MOV.L   	@(#04C,PC),R3	;
+0041CC 430B     	JSR     	@R3			;
+0041CE 7410     	ADD     	#10,R4		;
+0041D0 62F3     	MOV     	R15,R2		;
+0041D2 65F3     	MOV     	R15,R5		;
+0041D4 931E     	MOV.W   	@(#03C,PC),R3	;
+0041D6 7210     	ADD     	#10,R2		;
+0041D8 7510     	ADD     	#10,R5		;
+0041DA 2230     	MOV.B   	R3,@R2		;
+0041DC 62F3     	MOV     	R15,R2		;
+0041DE 53F3     	MOV.L   	@(#0C,R15),R3	;
+0041E0 7210     	ADD     	#10,R2		;
+0041E2 633C     	EXTU.B   	R3,R3			;
+0041E4 6033     	MOV     	R3,R0			;
+0041E6 63F3     	MOV     	R15,R3		;
+0041E8 8021     	MOV.B   	R0,@(#01,R2)	;
+0041EA 7310     	ADD     	#10,R3		;
+0041EC 62F2     	MOV.L   	@R15,R2		;
+0041EE 602C     	EXTU.B   	R2,R0			;
+0041F0 8032     	MOV.B   	R0,@(#02,R3)	;
+0041F2 63F3     	MOV     	R15,R3		;
+0041F4 52F2     	MOV.L   	@(#08,R15),R2	;
+0041F6 7310     	ADD     	#10,R3		;
+0041F8 602C     	EXTU.B   	R2,R0			;
+0041FA 8033     	MOV.B   	R0,@(#03,R3)	;
+0041FC 63F3     	MOV     	R15,R3		;
+0041FE 52F1     	MOV.L   	@(#04,R15),R2	;
+004200 7310     	ADD     	#10,R3		;
+004202 602C     	EXTU.B   	R2,R0			;
+004204 8037     	MOV.B   	R0,@(#07,R3)	;
+004206 D305     	MOV.L   	@(#014,PC),R3	;
+004208 430B     	JSR     	@R3			;
+00420A E400     	MOV     	#00,R4		;
+00420C 7F18     	ADD     	#18,R15		;
+00420E 4F26     	LDS.L   	@R15+,PR		;
+004210 000B     	RTS     				;
+004212 0009     	NOP     				;
+004214 0095
+004216 2696
+004218 0000     	
+00421A 4750     	
+00421C 0000     	
+00421E 4898     	
+004220 4F22     	STS.L   	PR,@-R15		;
+004222 7FEC     	ADD     	#EC,R15		;
+004224 1F42     	MOV.L   	R4,@(#8,R15)	;
+004226 64F3     	MOV     	R15,R4		;
+004228 2F52     	MOV.L   	R5,@R15		;
+00422A 1F61     	MOV.L   	R6,@(#4,R15)	;
+00422C D31D     	MOV.L   	@(#074,PC),R3	;
+00422E 430B     	JSR     	@R3			;
+004230 740C     	ADD     	#0C,R4		;
+004232 62F3     	MOV     	R15,R2		;
+004234 9333     	MOV.W   	@(#066,PC),R3	;
+004236 65F3     	MOV     	R15,R5		;
+004238 720C     	ADD     	#0C,R2		;
+00423A 750C     	ADD     	#0C,R5		;
+00423C 2230     	MOV.B   	R3,@R2		;
+00423E 62F3     	MOV     	R15,R2		;
+004240 53F2     	MOV.L   	@(#08,R15),R3	;
+004242 720C     	ADD     	#0C,R2		;
+004244 633C     	EXTU.B   	R3,R3			;
+004246 6033     	MOV     	R3,R0			;
+004248 8021     	MOV.B   	R0,@(#01,R2)	;
+00424A 63F3     	MOV     	R15,R3		;
+00424C 62F2     	MOV.L   	@R15,R2		;
+00424E 730C     	ADD     	#0C,R3		;
+004250 602D     	EXTU.W   	R2,R0			;
+004252 8131     	MOV.W   	R0,@(#02,R3)	;
+004254 63F3     	MOV     	R15,R3		;
+004256 52F1     	MOV.L   	@(#04,R15),R2	;
+004258 730C     	ADD     	#0C,R3		;
+00425A 602D     	EXTU.W   	R2,R0			;
+00425C 8133     	MOV.W   	R0,@(#06,R3)	;
+00425E D312     	MOV.L   	@(#048,PC),R3	;
+004260 430B     	JSR     	@R3			;
+004262 E400     	MOV     	#00,R4		;
+004264 7F14     	ADD     	#14,R15		;
+004266 4F26     	LDS.L   	@R15+,PR		;
+004268 000B     	RTS     				;
+00426A 0009     	NOP     				;
+00426C 4F22     	STS.L   	PR,@-R15		;
+00426E 7FF4     	ADD     	#F4,R15		;
+004270 2F42     	MOV.L   	R4,@R15		;
+004272 64F3     	MOV     	R15,R4		;
+004274 D30B     	MOV.L   	@(#02C,PC),R3	;
+004276 430B     	JSR     	@R3			;
+004278 7404     	ADD     	#04,R4		;
+00427A 62F3     	MOV     	R15,R2		;
+00427C 9310     	MOV.W   	@(#020,PC),R3	;
+00427E 65F3     	MOV     	R15,R5		;
+004280 7204     	ADD     	#04,R2		;
+004282 7504     	ADD     	#04,R5		;
+004284 2230     	MOV.B   	R3,@R2		;
+004286 62F3     	MOV     	R15,R2		;
+004288 63F2     	MOV.L   	@R15,R3		;
+00428A 7204     	ADD     	#04,R2		;
+00428C 603C     	EXTU.B   	R3,R0			;
+00428E 8023     	MOV.B   	R0,@(#03,R2)	;
+004290 D305     	MOV.L   	@(#014,PC),R3	;
+004292 430B     	JSR     	@R3			;
+004294 E400     	MOV     	#00,R4		;
+004296 7F0C     	ADD     	#0C,R15		;
+004298 4F26     	LDS.L   	@R15+,PR		;
+00429A 000B     	RTS     				;
+00429C 0009     	NOP     				;
+00429E 0096
+0042A0 0097
+0042A2 F804     	
+0042A4 0000     	
+0042A6 4750     	
+0042A8 0000     	
+0042AA 4898     	
+0042AC 2FE6     	MOV.L   	R14,@-R15		;
+0042AE 4F22     	STS.L   	PR,@-R15		;
+0042B0 7FE0     	ADD     	#E0,R15		;
+0042B2 1F43     	MOV.L   	R4,@(#C,R15)	;
+0042B4 2F52     	MOV.L   	R5,@R15		;
+0042B6 64F3     	MOV     	R15,R4		;
+0042B8 1F61     	MOV.L   	R6,@(#4,R15)	;
+0042BA 1F72     	MOV.L   	R7,@(#8,R15)	;
+0042BC 5EFA     	MOV.L   	@(#28,R15),R14	;
+0042BE D320     	MOV.L   	@(#080,PC),R3	;
+0042C0 430B     	JSR     	@R3			;
+0042C2 7418     	ADD     	#18,R4		;
+0042C4 62F3     	MOV     	R15,R2		;
+0042C6 66F3     	MOV     	R15,R6		;
+0042C8 65F3     	MOV     	R15,R5		;
+0042CA 9337     	MOV.W   	@(#06E,PC),R3	;
+0042CC 7218     	ADD     	#18,R2		;
+0042CE 7610     	ADD     	#10,R6		;
+0042D0 7518     	ADD     	#18,R5		;
+0042D2 2230     	MOV.B   	R3,@R2		;
+0042D4 62F3     	MOV     	R15,R2		;
+0042D6 53F3     	MOV.L   	@(#0C,R15),R3	;
+0042D8 7218     	ADD     	#18,R2		;
+0042DA 603C     	EXTU.B   	R3,R0			;
+0042DC 8023     	MOV.B   	R0,@(#03,R2)	;
+0042DE D319     	MOV.L   	@(#064,PC),R3	;
+0042E0 430B     	JSR     	@R3			;
+0042E2 E400     	MOV     	#00,R4		;
+0042E4 6403     	MOV     	R0,R4			;
+0042E6 62F2     	MOV.L   	@R15,R2		;
+0042E8 63F3     	MOV     	R15,R3		;
+0042EA 7310     	ADD     	#10,R3		;
+0042EC 8431     	MOV.B   	@(#01,R3),R0	;
+0042EE 6103     	MOV     	R0,R1			;
+0042F0 611C     	EXTU.B   	R1,R1			;
+0042F2 2212     	MOV.L   	R1,@R2		;
+0042F4 53F1     	MOV.L   	@(#04,R15),R3	;
+0042F6 62F3     	MOV     	R15,R2		;
+0042F8 7210     	ADD     	#10,R2		;
+0042FA 8422     	MOV.B   	@(#02,R2),R0	;
+0042FC 6103     	MOV     	R0,R1			;
+0042FE 611C     	EXTU.B   	R1,R1			;
+004300 2312     	MOV.L   	R1,@R3		;
+004302 53F2     	MOV.L   	@(#08,R15),R3	;
+004304 62F3     	MOV     	R15,R2		;
+004306 7210     	ADD     	#10,R2		;
+004308 8423     	MOV.B   	@(#03,R2),R0	;
+00430A 6103     	MOV     	R0,R1			;
+00430C 611C     	EXTU.B   	R1,R1			;
+00430E 2312     	MOV.L   	R1,@R3		;
+004310 63F3     	MOV     	R15,R3		;
+004312 7310     	ADD     	#10,R3		;
+004314 8434     	MOV.B   	@(#04,R3),R0	;
+004316 6203     	MOV     	R0,R2			;
+004318 2E20     	MOV.B   	R2,@R14		;
+00431A 63F3     	MOV     	R15,R3		;
+00431C 7310     	ADD     	#10,R3		;
+00431E 8435     	MOV.B   	@(#05,R3),R0	;
+004320 80E1     	MOV.B   	R0,@(#01,R14)	;
+004322 63F3     	MOV     	R15,R3		;
+004324 7310     	ADD     	#10,R3		;
+004326 8436     	MOV.B   	@(#06,R3),R0	;
+004328 63F3     	MOV     	R15,R3		;
+00432A 80E2     	MOV.B   	R0,@(#02,R14)	;
+00432C 7310     	ADD     	#10,R3		;
+00432E 8437     	MOV.B   	@(#07,R3),R0	;
+004330 80E3     	MOV.B   	R0,@(#03,R14)	;
+004332 6043     	MOV     	R4,R0			;
+004334 7F20     	ADD     	#20,R15		;
+004336 4F26     	LDS.L   	@R15+,PR		;
+004338 000B     	RTS     				;
+00433A 6EF6     	MOV.L   	@R15+,R14		;
+00433C 0098
+00433E 918F
+004340 0000     	
+004342 4750     	
+004344 0000     	
+004346 4804
+004348 4F22     	STS.L   	PR,@-R15		;
+00434A 7FEC     	ADD     	#EC,R15		;
+00434C 2F42     	MOV.L   	R4,@R15		;
+00434E 64F3     	MOV     	R15,R4		;
+004350 D30C     	MOV.L   	@(#030,PC),R3	;
+004352 430B     	JSR     	@R3			;
+004354 740C     	ADD     	#0C,R4		;
+004356 62F3     	MOV     	R15,R2		;
+004358 9312     	MOV.W   	@(#024,PC),R3	;
+00435A 66F3     	MOV     	R15,R6		;
+00435C 65F3     	MOV     	R15,R5		;
+00435E 720C     	ADD     	#0C,R2		;
+004360 7604     	ADD     	#04,R6		;
+004362 750C     	ADD     	#0C,R5		;
+004364 2230     	MOV.B   	R3,@R2		;
+004366 D308     	MOV.L   	@(#020,PC),R3	;
+004368 430B     	JSR     	@R3			;
+00436A E400     	MOV     	#00,R4		;
+00436C 6403     	MOV     	R0,R4			;
+00436E 63F3     	MOV     	R15,R3		;
+004370 62F2     	MOV.L   	@R15,R2		;
+004372 7304     	ADD     	#04,R3		;
+004374 5131     	MOV.L   	@(#04,R3),R1	;
+004376 2212     	MOV.L   	R1,@R2		;
+004378 7F14     	ADD     	#14,R15		;
+00437A 4F26     	LDS.L   	@R15+,PR		;
+00437C 000B     	RTS     				;
+00437E 6043     	MOV     	R4,R0			;
+004380 0099
+004382 0112
+004384 0000     	
+004386 4750     	
+004388 0000     	
+00438A 4804
 
 L00438C:
 00438C 2FE6     	MOV.L   	R14,@-R15		;R4-arg1,R5-arg2,R6-arg3,R7-arg4
@@ -7813,7 +8377,230 @@ L004510:
 004556 4BBE
 004558 0000
 00455A 2B64
+00455C 2FE6     	MOV.L   	R14,@-R15		;
+00455E 6E53     	MOV     	R5,R14		;
+004560 2FD6     	MOV.L   	R13,@-R15		;
+004562 2FC6     	MOV.L   	R12,@-R15		;
+004564 2FB6     	MOV.L   	R11,@-R15		;
+004566 6C63     	MOV     	R6,R12		;
+004568 2FA6     	MOV.L   	R10,@-R15		;
+00456A 6A43     	MOV     	R4,R10		;
+00456C 2F96     	MOV.L   	R9,@-R15		;
+00456E 2F86     	MOV.L   	R8,@-R15		;
+004570 4F22     	STS.L   	PR,@-R15		;
+004572 7FF4     	ADD     	#F4,R15		;
+004574 9B65     	MOV.W   	@(#0CA,PC),R11	;
+004576 1F71     	MOV.L   	R7,@(#4,R15)	;
+004578 64A2     	MOV.L   	@R10,R4		;
+00457A 6544     	MOV.B   	@R4+,R5		;
+00457C 655D     	EXTU.W   	R5,R5			;
+00457E 6244     	MOV.B   	@R4+,R2		;
+004580 4518     	SHLL8   	R5			;
+004582 22B9     	AND     	R11,R2		;
+004584 252B     	OR      	R2,R5			;
+004586 655D     	EXTU.W   	R5,R5			;
+004588 2F51     	MOV.W   	R5,@R15		;
+00458A 2A42     	MOV.L   	R4,@R10		;
+00458C 53F1     	MOV.L   	@(#04,R15),R3	;
+00458E 4315     	CMP/PL  	R3			;
+004590 8D02     	BT/S    	#004			;
+004592 E900     	MOV     	#00,R9		;
+004594 A07F     	BRA     	#00FE			;
+004596 0009     	NOP     				;
+004598 62E2     	MOV.L   	@R14,R2		;
+00459A 32C6     	CMP/HI 	R12,R2		;
+00459C 8B01     	BF      	#002			;
+00459E A07B     	BRA     	#00F6			;
+0045A0 E0FF     	MOV     	#FF,R0		;
+0045A2 64A2     	MOV.L   	@R10,R4		;
+0045A4 6544     	MOV.B   	@R4+,R5		;
+0045A6 6D5D     	EXTU.W   	R5,R13		;
+0045A8 6244     	MOV.B   	@R4+,R2		;
+0045AA 4D18     	SHLL8   	R13			;
+0045AC 6323     	MOV     	R2,R3			;
+0045AE 2A42     	MOV.L   	R4,@R10		;
+0045B0 23B9     	AND     	R11,R3		;
+0045B2 6293     	MOV     	R9,R2			;
+0045B4 61F1     	MOV.W   	@R15,R1		;
+0045B6 2D3B     	OR      	R3,R13		;
+0045B8 4200     	SHLL    	R2			;
+0045BA 611D     	EXTU.W   	R1,R1			;
+0045BC D321     	MOV.L   	@(#084,PC),R3	;
+0045BE 323C     	ADD     	R3,R2			;
+0045C0 6221     	MOV.W   	@R2,R2		;
+0045C2 622D     	EXTU.W   	R2,R2			;
+0045C4 2219     	AND     	R1,R2			;
+0045C6 2228     	TST     	R2,R2			;
+0045C8 8D20     	BT/S    	#040			;
+0045CA 6DDD     	EXTU.W   	R13,R13		;
+0045CC 63E2     	MOV.L   	@R14,R3		;
+0045CE 33C0     	CMP/EQ 	R12,R3		;
+0045D0 8B0A     	BF      	#014			;
+0045D2 63E2     	MOV.L   	@R14,R3		;
+0045D4 7301     	ADD     	#01,R3		;
+0045D6 2E32     	MOV.L   	R3,@R14		;
+0045D8 73FF     	ADD     	#FF,R3		;
+0045DA D21B     	MOV.L   	@(#06C,PC),R2	;
+0045DC 420B     	JSR     	@R2			;
+0045DE 60DD     	EXTU.W   	R13,R0		;
+0045E0 600C     	EXTU.B   	R0,R0			;
+0045E2 2300     	MOV.B   	R0,@R3		;
+0045E4 A058     	BRA     	#00B0			;
+0045E6 E001     	MOV     	#01,R0		;
+0045E8 62E2     	MOV.L   	@R14,R2		;
+0045EA 64DD     	EXTU.W   	R13,R4		;
+0045EC 7201     	ADD     	#01,R2		;
+0045EE 2E22     	MOV.L   	R2,@R14		;
+0045F0 72FF     	ADD     	#FF,R2		;
+0045F2 D315     	MOV.L   	@(#054,PC),R3	;
+0045F4 430B     	JSR     	@R3			;
+0045F6 6043     	MOV     	R4,R0			;
+0045F8 600C     	EXTU.B   	R0,R0			;
+0045FA 24B9     	AND     	R11,R4		;
+0045FC 2200     	MOV.B   	R0,@R2		;
+0045FE 644C     	EXTU.B   	R4,R4			;
+004600 62E2     	MOV.L   	@R14,R2		;
+004602 7201     	ADD     	#01,R2		;
+004604 2E22     	MOV.L   	R2,@R14		;
+004606 72FF     	ADD     	#FF,R2		;
+004608 A041     	BRA     	#0082			;
+00460A 2240     	MOV.B   	R4,@R2		;
+00460C 62DD     	EXTU.W   	R13,R2		;
+00460E D30F     	MOV.L   	@(#03C,PC),R3	;
+004610 2239     	AND     	R3,R2			;
+004612 2228     	TST     	R2,R2			;
+004614 8B1E     	BF      	#03C			;
+004616 64DD     	EXTU.W   	R13,R4		;
+004618 65C3     	MOV     	R12,R5		;
+00461A 68E2     	MOV.L   	@R14,R8		;
+00461C 7403     	ADD     	#03,R4		;
+00461E 3588     	SUB     	R8,R5			;
+004620 7501     	ADD     	#01,R5		;
+004622 3452     	CMP/HS 	R5,R4			;
+004624 8901     	BT      	#002			;
+004626 A001     	BRA     	#0002			;
+004628 6343     	MOV     	R4,R3			;
+00462A 6353     	MOV     	R5,R3			;
+00462C 6D3D     	EXTU.W   	R3,R13		;
+00462E 6583     	MOV     	R8,R5			;
+004630 66DD     	EXTU.W   	R13,R6		;
+004632 D307     	MOV.L   	@(#01C,PC),R3	;
+004634 75FF     	ADD     	#FF,R5		;
+004636 6550     	MOV.B   	@R5,R5		;
+004638 655C     	EXTU.B   	R5,R5			;
+00463A 430B     	JSR     	@R3			;
+00463C 6483     	MOV     	R8,R4			;
+00463E A022     	BRA     	#0044			;
+004640 0009     	NOP     				;
+004642 00FF
+004644 0600     	
+004646 0384
+004648 0000     	
+00464A 4BC6
+00464C 0000     	
+00464E F000     	
+004650 0000     	
+004652 4C18
+004654 60DD     	EXTU.W   	R13,R0		;
+004656 D31E     	MOV.L   	@(#078,PC),R3	;
+004658 430B     	JSR     	@R3			;
+00465A 1F02     	MOV.L   	R0,@(#8,R15)	;
+00465C 6403     	MOV     	R0,R4			;
+00465E 65C3     	MOV     	R12,R5		;
+004660 68E2     	MOV.L   	@R14,R8		;
+004662 7402     	ADD     	#02,R4		;
+004664 3588     	SUB     	R8,R5			;
+004666 7501     	ADD     	#01,R5		;
+004668 3452     	CMP/HS 	R5,R4			;
+00466A 8901     	BT      	#002			;
+00466C A001     	BRA     	#0002			;
+00466E 6243     	MOV     	R4,R2			;
+004670 6253     	MOV     	R5,R2			;
+004672 6D2D     	EXTU.W   	R2,R13		;
+004674 53F2     	MOV.L   	@(#08,R15),R3	;
+004676 6583     	MOV     	R8,R5			;
+004678 66DD     	EXTU.W   	R13,R6		;
+00467A 9228     	MOV.W   	@(#050,PC),R2	;
+00467C 2329     	AND     	R2,R3			;
+00467E 3538     	SUB     	R3,R5			;
+004680 D314     	MOV.L   	@(#050,PC),R3	;
+004682 430B     	JSR     	@R3			;
+004684 6483     	MOV     	R8,R4			;
+004686 6DDD     	EXTU.W   	R13,R13		;
+004688 62E2     	MOV.L   	@R14,R2		;
+00468A 32DC     	ADD     	R13,R2		;
+00468C 2E22     	MOV.L   	R2,@R14		;
+00468E 7901     	ADD     	#01,R9		;
+004690 53F1     	MOV.L   	@(#04,R15),R3	;
+004692 3933     	CMP/GE 	R3,R9			;
+004694 8B80     	BF      	#100			;
+004696 E000     	MOV     	#00,R0		;
+004698 7F0C     	ADD     	#0C,R15		;
+00469A 4F26     	LDS.L   	@R15+,PR		;
+00469C 68F6     	MOV.L   	@R15+,R8		;
+00469E 69F6     	MOV.L   	@R15+,R9		;
+0046A0 6AF6     	MOV.L   	@R15+,R10		;
+0046A2 6BF6     	MOV.L   	@R15+,R11		;
+0046A4 6CF6     	MOV.L   	@R15+,R12		;
+0046A6 6DF6     	MOV.L   	@R15+,R13		;
+0046A8 000B     	RTS     				;
+0046AA 6EF6     	MOV.L   	@R15+,R14		;
+0046AC 2FE6     	MOV.L   	R14,@-R15		;
+0046AE 6763     	MOV     	R6,R7			;
+0046B0 2FD6     	MOV.L   	R13,@-R15		;
+0046B2 6E63     	MOV     	R6,R14		;
+0046B4 2FC6     	MOV.L   	R12,@-R15		;
+0046B6 6D53     	MOV     	R5,R13		;
+0046B8 6653     	MOV     	R5,R6			;
+0046BA 6C43     	MOV     	R4,R12		;
+0046BC 4F22     	STS.L   	PR,@-R15		;
+0046BE 6543     	MOV     	R4,R5			;
+0046C0 4F26     	LDS.L   	@R15+,PR		;
+0046C2 D305     	MOV.L   	@(#014,PC),R3	;
+0046C4 E400     	MOV     	#00,R4		;
+0046C6 6CF6     	MOV.L   	@R15+,R12		;
+0046C8 6DF6     	MOV.L   	@R15+,R13		;
+0046CA 432B     	JMP     	@R3			;
+0046CC 6EF6     	MOV.L   	@R15+,R14		;
+0046CE 0FFF
+0046D0 0000     	
+0046D2 4BBE
+0046D4 0000     	
+0046D6 49F0     	
+0046D8 0000     	
+0046DA 2B64
 
+L0046DC:							;cdb_mem_copy(u32 len,u8* dst,u8* src)//arg1-R0,dst-R1,src-R2
+0046DC 2F26     	MOV.L   	R2,@-R15		;
+0046DE 2F36     	MOV.L   	R3,@-R15		;
+0046E0 2F46     	MOV.L   	R4,@-R15		;
+0046E2 8800     	CMP/EQ  	#00,R0		;
+0046E4 8912     	BT      	L00470C		;if (len == 0) return;
+0046E6 6423     	MOV     	R2,R4			;
+0046E8 340C     	ADD     	R0,R4			;
+L0046EA:
+0046EA 6024     	MOV.B   	@R2+,R0		;for (int i=0; i<len; i+=4) {
+0046EC 2100     	MOV.B   	R0,@R1		;  dst[i] = src[i];
+0046EE 3426     	CMP/HI 	R2,R4			;
+0046F0 8B0C     	BF      	L00470C		;
+0046F2 6024     	MOV.B   	@R2+,R0		;
+0046F4 8011     	MOV.B   	R0,@(#01,R1)	;  dst[i+1] = src[i+1];
+0046F6 3426     	CMP/HI 	R2,R4			;
+0046F8 8B08     	BF      	L00470C		;
+0046FA 6024     	MOV.B   	@R2+,R0		;
+0046FC 8012     	MOV.B   	R0,@(#02,R1)	;  dst[i+2] = src[i+2];
+0046FE 3426     	CMP/HI 	R2,R4			;
+004700 8B04     	BF      	L00470C		;
+004702 6024     	MOV.B   	@R2+,R0		;
+004704 8013     	MOV.B   	R0,@(#03,R1)	;  dst[i+3] = src[i+3];
+004706 3426     	CMP/HI 	R2,R4			;
+004708 7104     	ADD     	#04,R1		;
+00470A 89EE     	BT      	L0046EA		;}
+L00470C:
+00470C 64F6     	MOV.L   	@R15+,R4		;
+00470E 63F6     	MOV.L   	@R15+,R3		;
+004710 000B     	RTS     				;
+004712 62F6     	MOV.L   	@R15+,R2		;
 
 L004714:
 004714 6743     	MOV     	R4,R7			;
@@ -7862,10 +8649,10 @@ L004750:							;void mem_clear8(u32* dst)//dst-R4
 00475E 000B     	RTS     				;
 004760 0009     	NOP     				;
 
-L004762:							;int cdb_exec_cmd2(u16 imask,u16* cmd)//imask-R4,cmd-R5
+L004762:							;int cdb_exec_cmd2(u16 imask,u16* cmd,u16* resp)//imask-R4,cmd-R5
 004762 2FE6     	MOV.L   	R14,@-R15		;
 004764 4F22     	STS.L   	PR,@-R15		;
-004766 D311     	MOV.L   	@(#044,PC),R3	;u16 resp[4];
+004766 D311     	MOV.L   	@(#044,PC),R3	;
 004768 430B     	JSR     	@R3			;int ret = cdb_send_cmd(imask,cmd,resp);
 00476A 6E63     	MOV     	R6,R14		;
 00476C 6403     	MOV     	R0,R4			;
@@ -7878,7 +8665,7 @@ L004762:							;int cdb_exec_cmd2(u16 imask,u16* cmd)//imask-R4,cmd-R5
 L00477A:
 00477A D30D     	MOV.L   	@(#034,PC),R3	;
 00477C 62E0     	MOV.B   	@R14,R2		;if (!ret)
-00477E 2320     	MOV.B   	R2,@R3		;  *(u8*)0x060003A8 = resp[0]>>8;
+00477E 2320     	MOV.B   	R2,@R3		;  cdb_report[0] = resp[0]>>8;
 004780 6043     	MOV     	R4,R0			;
 004782 4F26     	LDS.L   	@R15+,PR		;
 004784 000B     	RTS     				;return ret;
@@ -7945,7 +8732,258 @@ L0047D6:							;void make_cdb_report(u16* resp, u8* cdb_rep)//resp-R4,cdb_rep-R5
 0047F8 060003A8
 0047FC 00004A0C
 004800 00FFFFFF
+004802 FFFF     	
+004804 4F22     	STS.L   	PR,@-R15		;
+004806 7FFC     	ADD     	#FC,R15		;
+004808 B023     	BRS     	#0046			;
+00480A 2F62     	MOV.L   	R6,@R15		;
+00480C 6403     	MOV     	R0,R4			;
+00480E 2448     	TST     	R4,R4			;
+004810 8903     	BT      	#006			;
+004812 7F04     	ADD     	#04,R15		;
+004814 4F26     	LDS.L   	@R15+,PR		;
+004816 000B     	RTS     				;
+004818 6043     	MOV     	R4,R0			;
+00481A 0002     	STC     	SR, R0		;
+00481C 4009     	SHLR2   	R0			;
+00481E 4009     	SHLR2   	R0			;
+004820 C90F     	AND     	#0F,R0		;
+004822 6503     	MOV     	R0,R5			;
+004824 0002     	STC     	SR, R0		;
+004826 9328     	MOV.W   	@(#050,PC),R3	;
+004828 2039     	AND     	R3,R0			;
+00482A CBF0     	OR      	#F0,R0		;
+00482C 400E     	LDC     	R0,SR			;
+00482E D214     	MOV.L   	@(#050,PC),R2	;
+004830 63F2     	MOV.L   	@R15,R3		;
+004832 6130     	MOV.B   	@R3,R1		;
+004834 2210     	MOV.B   	R1,@R2		;
+004836 6053     	MOV     	R5,R0			;
+004838 C90F     	AND     	#0F,R0		;
+00483A 4008     	SHLL2   	R0			;
+00483C 4008     	SHLL2   	R0			;
+00483E 0302     	STC     	SR, R3		;
+004840 921B     	MOV.W   	@(#036,PC),R2	;
+004842 2329     	AND     	R2,R3			;
+004844 203B     	OR      	R3,R0			;
+004846 400E     	LDC     	R0,SR			;
+004848 6043     	MOV     	R4,R0			;
+00484A 7F04     	ADD     	#04,R15		;
+00484C 4F26     	LDS.L   	@R15+,PR		;
+00484E 000B     	RTS     				;
+004850 0009     	NOP     				;
+004852 4F22     	STS.L   	PR,@-R15		;
+004854 7FF4     	ADD     	#F4,R15		;
+004856 1F41     	MOV.L   	R4,@(#4,R15)	;
+004858 1F52     	MOV.L   	R5,@(#8,R15)	;
+00485A D30A     	MOV.L   	@(#028,PC),R3	;
+00485C 430B     	JSR     	@R3			;
+00485E 2F62     	MOV.L   	R6,@R15		;
+004860 6403     	MOV     	R0,R4			;
+004862 920B     	MOV.W   	@(#016,PC),R2	;
+004864 644D     	EXTU.W   	R4,R4			;
+004866 2429     	AND     	R2,R4			;
+004868 2448     	TST     	R4,R4			;
+00486A 890F     	BT      	#01E			;
+00486C 66F2     	MOV.L   	@R15,R6		;
+00486E 55F2     	MOV.L   	@(#08,R15),R5	;
+004870 D305     	MOV.L   	@(#014,PC),R3	;
+004872 430B     	JSR     	@R3			;
+004874 54F1     	MOV.L   	@(#04,R15),R4	;
+004876 A00B     	BRA     	#0016			;
+004878 0009     	NOP     				;
+00487A FF0F     	
+00487C 1000
+00487E 597B
+004880 0600     	
+004882 03B4
+004884 0000     	
+004886 3C32
+004888 0000     	
+00488A 3D06
+00488C B05E     	BRS     	#00BC			;
+00488E E4EC     	MOV     	#EC,R4		;
+004890 7F0C     	ADD     	#0C,R15		;
+004892 4F26     	LDS.L   	@R15+,PR		;
+004894 000B     	RTS     				;
+004896 0009     	NOP     				;
+004898 2FE6     	MOV.L   	R14,@-R15		;
+00489A 4F22     	STS.L   	PR,@-R15		;
+00489C 7FF4     	ADD     	#F4,R15		;
+00489E 66F3     	MOV     	R15,R6		;
+0048A0 BFD7     	BRS     	#1FAE			;
+0048A2 7604     	ADD     	#04,R6		;
+0048A4 6E03     	MOV     	R0,R14		;
+0048A6 2EE8     	TST     	R14,R14		;
+0048A8 8904     	BT      	#008			;
+0048AA 60E3     	MOV     	R14,R0		;
+0048AC 7F0C     	ADD     	#0C,R15		;
+0048AE 4F26     	LDS.L   	@R15+,PR		;
+0048B0 000B     	RTS     				;
+0048B2 6EF6     	MOV.L   	@R15+,R14		;
+0048B4 0002     	STC     	SR, R0		;
+0048B6 4009     	SHLR2   	R0			;
+0048B8 4009     	SHLR2   	R0			;
+0048BA C90F     	AND     	#0F,R0		;
+0048BC 2F02     	MOV.L   	R0,@R15		;
+0048BE 0002     	STC     	SR, R0		;
+0048C0 9323     	MOV.W   	@(#046,PC),R3	;
+0048C2 2039     	AND     	R3,R0			;
+0048C4 CBF0     	OR      	#F0,R0		;
+0048C6 400E     	LDC     	R0,SR			;
+0048C8 D510     	MOV.L   	@(#040,PC),R5	;
+0048CA 64F3     	MOV     	R15,R4		;
+0048CC B06A     	BRS     	#00D4			;
+0048CE 7404     	ADD     	#04,R4		;
+0048D0 60F2     	MOV.L   	@R15,R0		;
+0048D2 C90F     	AND     	#0F,R0		;
+0048D4 4008     	SHLL2   	R0			;
+0048D6 4008     	SHLL2   	R0			;
+0048D8 0202     	STC     	SR, R2		;
+0048DA 9316     	MOV.W   	@(#02C,PC),R3	;
+0048DC 2239     	AND     	R3,R2			;
+0048DE 202B     	OR      	R2,R0			;
+0048E0 400E     	LDC     	R0,SR			;
+0048E2 60E3     	MOV     	R14,R0		;
+0048E4 7F0C     	ADD     	#0C,R15		;
+0048E6 4F26     	LDS.L   	@R15+,PR		;
+0048E8 000B     	RTS     				;
+0048EA 6EF6     	MOV.L   	@R15+,R14		;
 
+L0048EC:							;int cdb_exec_cmd3(u16 imask,u16* cmd)
+0048EC 2FE6     	MOV.L   	R14,@-R15		;
+0048EE 4F22     	STS.L   	PR,@-R15		;
+0048F0 7FF4     	ADD     	#F4,R15		;
+0048F2 66F3     	MOV     	R15,R6		;
+0048F4 D306     	MOV.L   	@(#018,PC),R3	;u16 resp[4];
+0048F6 430B     	JSR     	@R3			;int ret = cdb_send_cmd(imask,cmd,resp);//L003D06
+0048F8 7604     	ADD     	#04,R6		;
+0048FA 6E03     	MOV     	R0,R14		;
+0048FC 2EE8     	TST     	R14,R14		;
+0048FE 8909     	BT      	L004914		;if (ret) return ret;
+004900 60E3     	MOV     	R14,R0		;
+004902 7F0C     	ADD     	#0C,R15		;
+004904 4F26     	LDS.L   	@R15+,PR		;
+004906 000B     	RTS     				;
+004908 6EF6     	MOV.L   	@R15+,R14		;
+00490A FF0F     	
+00490C 0600     	
+00490E 03B4
+004910 00003D06
+L004914:
+004914 0002     	STC     	SR, R0		;
+004916 4009     	SHLR2   	R0			;
+004918 4009     	SHLR2   	R0			;
+00491A C90F     	AND     	#0F,R0		;
+00491C 2F02     	MOV.L   	R0,@R15		;u32 sri = (SH2.SR>>4) & 0x0F;
+00491E 0002     	STC     	SR, R0		;
+004920 933B     	MOV.W   	@(#076,PC),R3	;
+004922 2039     	AND     	R3,R0			;
+004924 CBF0     	OR      	#F0,R0		;
+004926 400E     	LDC     	R0,SR			;SH2.SR = (SH2.SR & 0xFFFFFF0F) | 0x000000F0;
+004928 D51C     	MOV.L   	@(#070,PC),R5	;
+00492A 64F3     	MOV     	R15,R4		;
+00492C B03A     	BRS     	L0049A4		;L0049A4(resp,0x060003B4);
+00492E 7404     	ADD     	#04,R4		;
+004930 60F2     	MOV.L   	@R15,R0		;
+004932 C90F     	AND     	#0F,R0		;
+004934 4008     	SHLL2   	R0			;
+004936 4008     	SHLL2   	R0			;
+004938 0202     	STC     	SR, R2		;
+00493A 932E     	MOV.W   	@(#05C,PC),R3	;
+00493C 2239     	AND     	R3,R2			;
+00493E 202B     	OR      	R2,R0			;
+004940 400E     	LDC     	R0,SR			;SH2.SR = (SH2.SR & 0xFFFFFF0F) | sri<<4;
+004942 60E3     	MOV     	R14,R0		;
+004944 7F0C     	ADD     	#0C,R15		;
+004946 4F26     	LDS.L   	@R15+,PR		;
+004948 000B     	RTS     				;return ret;
+00494A 6EF6     	MOV.L   	@R15+,R14		;
+
+00494C 4F22     	STS.L   	PR,@-R15		;
+00494E 7FF0     	ADD     	#F0,R15		;
+004950 2F42     	MOV.L   	R4,@R15		;
+004952 64F3     	MOV     	R15,R4		;
+004954 B005     	BRS     	#000A			;
+004956 7404     	ADD     	#04,R4		;
+004958 60F2     	MOV.L   	@R15,R0		;
+00495A 7F10     	ADD     	#10,R15		;
+00495C 4F26     	LDS.L   	@R15+,PR		;
+00495E 000B     	RTS     				;
+004960 0009     	NOP     				;
+004962 4F22     	STS.L   	PR,@-R15		;
+004964 0002     	STC     	SR, R0		;
+004966 4009     	SHLR2   	R0			;
+004968 4009     	SHLR2   	R0			;
+00496A C90F     	AND     	#0F,R0		;
+00496C 6503     	MOV     	R0,R5			;
+00496E 0002     	STC     	SR, R0		;
+004970 9313     	MOV.W   	@(#026,PC),R3	;
+004972 2039     	AND     	R3,R0			;
+004974 CBF0     	OR      	#F0,R0		;
+004976 400E     	LDC     	R0,SR			;
+004978 6143     	MOV     	R4,R1			;
+00497A D208     	MOV.L   	@(#020,PC),R2	;
+00497C D308     	MOV.L   	@(#020,PC),R3	;
+00497E 430B     	JSR     	@R3			;
+004980 E00A     	MOV     	#0A,R0		;
+004982 6053     	MOV     	R5,R0			;
+004984 C90F     	AND     	#0F,R0		;
+004986 4008     	SHLL2   	R0			;
+004988 4008     	SHLL2   	R0			;
+00498A 0202     	STC     	SR, R2		;
+00498C 9305     	MOV.W   	@(#00A,PC),R3	;
+00498E 2239     	AND     	R3,R2			;
+004990 202B     	OR      	R2,R0			;
+004992 400E     	LDC     	R0,SR			;
+004994 4F26     	LDS.L   	@R15+,PR		;
+004996 000B     	RTS     				;
+004998 0009     	NOP     				;
+00499A FF0F
+00499C 060003B4
+0049A0 0000     	
+0049A2 46DC
+
+L0049A4:							;void (u8* src,u8* dst)
+0049A4 6340     	MOV.B   	@R4,R3		;
+0049A6 2530     	MOV.B   	R3,@R5		;dst[0] = src[0];
+0049A8 8441     	MOV.B   	@(#01,R4),R0	;
+0049AA 8052     	MOV.B   	R0,@(#02,R5)	;dst[2] = src[1];
+0049AC 8541     	MOV.W   	@(#02,R4),R0	;
+0049AE 8152     	MOV.W   	R0,@(#04,R5)	;dst[4] = src[2];dst[5] = src[3];
+0049B0 8444     	MOV.B   	@(#04,R4),R0	;
+0049B2 8056     	MOV.B   	R0,@(#06,R5)	;dst[6] = src[4];
+0049B4 8445     	MOV.B   	@(#05,R4),R0	;
+0049B6 8057     	MOV.B   	R0,@(#07,R5)	;dst[7] = src[5];
+0049B8 8543     	MOV.W   	@(#06,R4),R0	;
+0049BA 000B     	RTS     				;dst[8] = src[6];dst[9] = src[7];
+0049BC 8154     	MOV.W   	R0,@(#08,R5)	;
+
+0049BE 177B     	MOV.L   	R7,@(#2C,R7)	;
+0049C0 E300     	MOV     	#00,R3		;
+0049C2 3636     	CMP/HI 	R3,R6			;
+0049C4 8F06     	BF/S    	#00C			;
+0049C6 6743     	MOV     	R4,R7			;
+0049C8 2751     	MOV.W   	R5,@R7		;
+0049CA 76FF     	ADD     	#FF,R6		;
+0049CC E200     	MOV     	#00,R2		;
+0049CE 3626     	CMP/HI 	R2,R6			;
+0049D0 8DFA     	BT/S    	#1F4			;
+0049D2 7702     	ADD     	#02,R7		;
+0049D4 000B     	RTS     				;
+0049D6 6043     	MOV     	R4,R0			;
+0049D8 E300     	MOV     	#00,R3		;
+0049DA 3636     	CMP/HI 	R3,R6			;
+0049DC 8F06     	BF/S    	#00C			;
+0049DE 6743     	MOV     	R4,R7			;
+0049E0 2752     	MOV.L   	R5,@R7		;
+0049E2 76FF     	ADD     	#FF,R6		;
+0049E4 E200     	MOV     	#00,R2		;
+0049E6 3626     	CMP/HI 	R2,R6			;
+0049E8 8DFA     	BT/S    	#1F4			;
+0049EA 7704     	ADD     	#04,R7		;
+0049EC 000B     	RTS     				;
+0049EE 6043     	MOV     	R4,R0			;
 
 L0049F0:							;(u8* dst,u8* src,int len)//dst-R4,src-R5,len-R6
 0049F0 6743     	MOV     	R4,R7			;
@@ -8216,9 +9254,12 @@ L004C2E:
 004C2E 000B     	RTS     				;
 004C30 6043     	MOV     	R4,R0			;
 004C32 A818     	BRA     	#1030			;
-004C34 0000
-004C36 00FF
-004C38 FFFF
+
+L004C34:
+	dc.b	0x00,0x00,0x00
+L004C37:
+	dc.b	0xFF,0xFF,0xFF
+
 004C3A 33C1
 L004C3C:  		 					;
 	cd.b	" CDBLOCK"
