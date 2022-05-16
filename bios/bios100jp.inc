@@ -34,6 +34,11 @@ time_not_set:					;u32 time_not_set;
 	dc.l 	0x00000000
 
 
+	.org 0x0600022C
+hw_flag:						;u32 hw_flag;
+	dc.l 	0x00000000
+
+
 	.org 0x06000234
 mem_set_func:					;void** mem_set_func;
 	dc.l 	0x00000000
@@ -58,11 +63,17 @@ player_exec_func:					;void** player_exec_func;
 	dc.l 	0x00000000
 
 
+	.org 0x060002A0
+unk_060002A0:					;u8 unk_060002A0[32];
+
 
 	.org 0x060002C4
 master_main_func:					;void** master_main_func;
 	dc.l 	0x00000000
 
+
+	.org 0x06000300
+bios_func_06000300:				;void** bios_func_06000300;//void (*)(u32, void (*)(void));
 
 	.org 0x06000324
 sys_clock_mode:					;u32 sys_clock_mode;
