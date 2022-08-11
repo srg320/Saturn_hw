@@ -3713,12 +3713,12 @@ L001EFC:							;
 001F04 6051     	MOV.W   	@R5,R0		;
 001F06 9214     	MOV.W   	@(#028,PC),R2	;
 001F08 202B     	OR      	R2,R0			;
-001F0A 2501     	MOV.W   	R0,@R5		;SH1.PFC.IPRB|=0x0060 (1->DEMP)
+001F0A 2501     	MOV.W   	R0,@R5		;SH1.PFC.IPRB |= 0x0060 (1->DEMP)
 001F0C 900F     	MOV.W   	@(#01E,PC),R0	;
 001F0E 8114     	MOV.W   	R0,@(#08,R1)	;YGR.REG08 = 0x0001;
 001F10 900E     	MOV.W   	@(#01C,PC),R0	;
-001F12 811F     	MOV.W   	R0,@(#1E,R1)	;YGR.HIRQ = 0x0BE1;
-001F14 D308     	MOV.L   	@(#020,PC),R3	;
+001F12 811F     	MOV.W   	R0,@(#1E,R1)	;YGR.HIRQ = HIRQ_MPED|HIRQ_EFLS|HIRQ_ECPY|HIRQ_EHST|
+001F14 D308     	MOV.L   	@(#020,PC),R3	;           HIRQ_ESEL|HIRQ_DCHG|HIRQ_CMOK;
 001F16 D409     	MOV.L   	@(#024,PC),R4	;
 001F18 6039     	SWAP.W   	R3,R0			;
 001F1A 8118     	MOV.W   	R0,@(#10,R1)	;YGR.RR1 = "/0C";
@@ -3781,8 +3781,8 @@ IRQL:								;IRQL handler
 001F8E 6008     	SWAP.B   	R0,R0			;u32 h;
 001F90 600E     	EXTS.B   	R0,R0			;u16 rr1,rr2,rr3,rr4;
 001F92 8805     	CMP/EQ  	#05,R0		;
-001F94 8903     	BT      	L001F9E		;if (*(u8*)0x0F0007B0 & 0x01 == 0 || cr1>>8 == 0x05) {
-001F96 B186     	BRS     	L0022A6		; L0022A6(cr1,cr2,cr3,cr4,&rr1,&rr2,&rr3,&rr4);
+001F94 8903     	BT      	L001F9E		;if (auth_device_flag & 0x01 != 0 && cr1>>8 != 0x05) {
+001F96 B186     	BRS     	L0022A6		;  make_cd_status_err(cr1,cr2,cr3,cr4,&rr1,&rr2,&rr3,&rr4);
 001F98 0009     	NOP     				;
 001F9A A00A     	BRA     	L001FB2		;
 001F9C 0009     	NOP     				;
@@ -3849,7 +3849,7 @@ L002020:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 00202C 442B     	JMP     	@R4			;if (cmd <= 0x06) command_0x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 00202E 0009     	NOP     				;
 L002030:
-002030 A139     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002030 A139     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002032 0009     	NOP     				;
 
 command_0x_tbl:						;00002034
@@ -3872,7 +3872,7 @@ L002050:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 00205E 442B     	JMP     	@R4			;if (cmd <= 0x06) command_1x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4)
 002060 0009     	NOP     				;
 L002062:
-002062 A120     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002062 A120     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002064 0009     	NOP     				;
 002066 0009
 
@@ -3892,7 +3892,7 @@ L002074:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 002082 442B     	JMP     	@R4			;if (cmd <= 0x20) command_2x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4)
 002084 0009     	NOP     				;
 L002086:
-002086 A10E     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002086 A10E     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002088 0009     	NOP     				;
 00208A 0009     	NOP     				;
 
@@ -3909,7 +3909,7 @@ L002090:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 00209C 043E     	MOV.L   	@(R0,R3),R4		;
 00209E 442B     	JMP     	@R4			;if (cmd <= 0x32) command_3x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4)
 0020A0 0009     	NOP     				;
-0020A2 A100     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+0020A2 A100     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 0020A4 0009     	NOP     				;
 0020A6 0009     	NOP     				;
 
@@ -3928,7 +3928,7 @@ L0020B4:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 0020C0 043E     	MOV.L   	@(R0,R3),R4		;
 0020C2 442B     	JMP     	@R4			;if (cmd <= 0x48) command_4x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4)
 0020C4 0009     	NOP     				;
-0020C6 A0EE     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+0020C6 A0EE     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 0020C8 0009     	NOP     				;
 0020CA 442B     	JMP     	@R4			;
 0020CC 0009     	NOP     				;
@@ -3955,7 +3955,7 @@ L0020F4:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 002100 043E     	MOV.L   	@(R0,R3),R4		;
 002102 442B     	JMP     	@R4			;if (cmd <= 0x56) command_5x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4)
 002104 0009     	NOP     				;
-002106 A0CE     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002106 A0CE     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002108 0009     	NOP     				;
 00210A 0009
 
@@ -3978,7 +3978,7 @@ L002128:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 002134 043E     	MOV.L   	@(R0,R3),R4		;
 002136 442B     	JMP     	@R4			;if (cmd <= 0x67) command_6x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4)
 002138 0009     	NOP     				;
-00213A A0B4     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+00213A A0B4     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 00213C 0009     	NOP     				;
 00213E 0009
 
@@ -4002,7 +4002,7 @@ L002160:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 00216C 043E     	MOV.L   	@(R0,R3),R4		;
 00216E 442B     	JMP     	@R4			;if (cmd <= 0x75) command_7x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4)
 002170 0009     	NOP     				;
-002172 A098     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002172 A098     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002174 0009     	NOP     				;
 002176 0009
 
@@ -4038,7 +4038,7 @@ L0021AC:
 0021B6 442B     	JMP     	@R4			;  command_9x_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 0021B8 0009     	NOP     				;}
 L0021BA:
-0021BA A074     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+0021BA A074     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 0021BC 0009     	NOP     				;
 0021BE 0009     	NOP     				;
 
@@ -4071,7 +4071,7 @@ L002200:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 00220E D417     	MOV.L   	@(#05C,PC),R4	;
 002210 6040     	MOV.B   	@R4,R0		;if (cmd <= 0xAF &&
 002212 C880     	TST     	#80,R0		;    (hw_flags & 0x02) != 0x00 &&
-002214 8906     	BT      	L002224		;    (@0x0F000892.b & 0x80) != 0x00) {
+002214 8906     	BT      	L002224		;    (*(u8*)0x0F000892 & 0x80) != 0x00) {
 002216 C704     	MOVA    	@(#10,PC),R0	;
 002218 E40F     	MOV     	#0F,R4		;
 00221A 2349     	AND     	R4,R3			;
@@ -4080,7 +4080,7 @@ L002200:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4)
 002220 442B     	JMP     	@R4			;  command_Ax_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002222 0009     	NOP     				;}
 L002224:
-002224 A03F     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002224 A03F     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002226 0009     	NOP     				;
 command_Ax_tbl:						;00002228
 002228 0000F800						;cdb command A0 "MPEG Display"
@@ -4114,7 +4114,7 @@ L002270:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) //cr
 002280 442B     	JMP     	@R4			;if (cmd <= 0xE2) command_Ex_tbl[cmd&0x0F](cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002282 0009     	NOP     				;
 L002284:
-002284 A00F     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002284 A00F     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 002286 0009     	NOP     				;
 command_Ex_tbl:						;
 002288 0000C2B6						;cdb command E0 "Authenticate Device"
@@ -4124,7 +4124,7 @@ command_Ex_tbl:						;
 								;cdb command 8x,Bx,Cx,Dx
 L002294:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) //cr1/cr2-R1,cr3/cr4-R2,cmd-R3,rr1/rr2-R12,rr3/rr4-R13
 002294 A007     	BRA     	L0022A6		;
-002296 0009     	NOP     				;L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+002296 0009     	NOP     				;return make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 
 								;cdb command Fx
 L002298:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) //cr1/cr2-R1,cr3/cr4-R2,cmd-R3,rr1/rr2-R12,rr3/rr4-R13
@@ -4134,10 +4134,10 @@ L002298:							;(u16 cr1,cr2,cr3,cr4,u8 cmd,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) //cr
 00229E A055     	BRA     	L00234C		;if (cmd == 0xFF) L00234C(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 0022A0 0009     	NOP     				;
 L0022A2:
-0022A2 A000     	BRA     	L0022A6		;else L0022A6(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
+0022A2 A000     	BRA     	L0022A6		;else make_cd_status_err(cr1,cr2,cr3,cr4,h,rr1,rr2,rr3,rr4);
 0022A4 0009     	NOP     				;
 
-L0022A6:							;(u16 cr1,cr2,cr3,cr4,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) //cr1/cr2-R1,cr3/cr4-R2,cmd-R3,rr1/rr2-R12,rr3/rr4-R13
+L0022A6:							;make_cd_status_err(u16 cr1,cr2,cr3,cr4,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) //cr1/cr2-R1,cr3/cr4-R2,cmd-R3,rr1/rr2-R12,rr3/rr4-R13
 0022A6 D007     	MOV.L   	@(#01C,PC),R0	;*h = 0x00000000;
 0022A8 402B     	JMP     	@R0			;return make_cd_status_FF(rr1,rr2,rr3,rr4);
 0022AA 2BBA     	XOR     	R11,R11		;
@@ -4156,52 +4156,52 @@ L0022CC:							;cmd_end_data_transfer(u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)
 0022CC D91E     	MOV.L   	@(#078,PC),R9	;
 0022CE E000     	MOV     	#00,R0		;*(u8*)0x0F00025B = 0x00;
 0022D0 D416     	MOV.L   	@(#058,PC),R4	;
-0022D2 442B     	JMP     	@R4			;return L002568();
+0022D2 442B     	JMP     	@R4			;return stop_data_transfer(rr1,rr2,rr3,rr4);//L002568
 0022D4 2900     	MOV.B   	R0,@R9		;
 
 ;cdb command 02 "Get TOC"
 L0022D6:							;get_toc(u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)
 0022D6 D414     	MOV.L   	@(#050,PC),R4	;
-0022D8 A00F     	BRA     	L0022FA		;return get_put_data_common(L009292,cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4);
+0022D8 A00F     	BRA     	L0022FA		;return get_put_data_common(L009292,cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4);
 0022DA 0009     	NOP     				;
 
 ;cdb command 20 "Get Subcode QRW"
 L0022DC:							;get_subcode(u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)
 0022DC D414     	MOV.L   	@(#050,PC),R4	;
-0022DE A00C     	BRA     	L0022FA		;return get_put_data_common(L009430,cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4);
+0022DE A00C     	BRA     	L0022FA		;return get_put_data_common(L009430,cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4);
 0022E0 0009     	NOP     				;
 
 ;cdb command 61 "Get Sector Data"
 L0022E2:							;get_sector_data(u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)
 0022E2 D414     	MOV.L   	@(#050,PC),R4	;
-0022E4 A009     	BRA     	L0022FA		;return get_put_data_common(L00689C,cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4);
+0022E4 A009     	BRA     	L0022FA		;return get_put_data_common(L00689C,cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4);
 0022E6 0009     	NOP     				;
 
 ;cdb command 63 "Get Then Delete Sector Data"
 L0022E8:							;get_del_sector_data(u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)
 0022E8 D413     	MOV.L   	@(#04C,PC),R4	;
-0022EA A006     	BRA     	L0022FA		;return get_put_data_common(L00689C,cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4);
+0022EA A006     	BRA     	L0022FA		;return get_put_data_common(L00689C,cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4);
 0022EC 0009     	NOP     				;
 
 ;cdb command 64 "Put Sector Data"
 L0022EE:							;put_sector_data(u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)
 0022EE D413     	MOV.L   	@(#04C,PC),R4	;
-0022F0 A003     	BRA     	L0022FA		;return get_put_data_common(L0068D0,cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4);
+0022F0 A003     	BRA     	L0022FA		;return get_put_data_common(L0068D0,cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4);
 0022F2 0009     	NOP     				;
 
 ;cdb command 73 "Get File Info"
 L0022F4:							;get_file_info(u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)
 0022F4 D412     	MOV.L   	@(#048,PC),R4	;
-0022F6 A000     	BRA     	L0022FA		;return get_put_data_common(L0095B8,cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4);
+0022F6 A000     	BRA     	L0022FA		;return get_put_data_common(L0095B8,cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4);
 0022F8 0009     	NOP     				;
 
-L0022FA:							;get_put_data_common(void* func,u16 cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4)	//func-R4
+L0022FA:							;get_put_data_common(void* func,u16 cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4)	//func-R4
 0022FA D913     	MOV.L   	@(#04C,PC),R9	;
 0022FC 6090     	MOV.B   	@R9,R0		;
 0022FE 2008     	TST     	R0,R0			;
 002300 8B0E     	BF      	L002320		;if (*(u8*)0x0F00025B == 0x00) {
 002302 4F22     	STS.L   	PR,@-R15		;
-002304 440B     	JSR     	@R4			;  func(cr1,cr2,cr3,cr4,*rr1,*rr2,*rr3,*rr4);
+002304 440B     	JSR     	@R4			;  func(cr1,cr2,cr3,cr4,rr1,rr2,rr3,rr4);
 002306 0009     	NOP     				;
 002308 4F26     	LDS.L   	@R15+,PR		;
 00230A 4C11     	CMP/PZ  	R12			;  u8 status = *rr1>>8;
@@ -4267,7 +4267,7 @@ L002376:
 L002388:							;_init()
 002388 D1D1     	MOV.L   	@(#344,PC),R1	;
 00238A 9015     	MOV.W   	@(#02A,PC),R0	;
-00238C 8117     	MOV.W   	R0,@(#0E,R1)	;SH1.DMAC.SAR1 = 0x1258;
+00238C 8117     	MOV.W   	R0,@(#0E,R1)	;SH1.DMAC.CHR1 = 0x1258;
 00238E D1D1     	MOV.L   	@(#344,PC),R1	;
 002390 E008     	MOV     	#08,R0		;
 002392 8111     	MOV.W   	R0,@(#02,R1)	;YGR.TRCTL = 0x0008;
@@ -4291,18 +4291,18 @@ L002388:							;_init()
 0023B6 0009     	NOP     				;
 0023B8 1258
 
-L0023BA:							;(arg1)	//arg1-R11
-0023BA 4F22     	STS.L   	PR,@-R15		;
+L0023BA:							;void data_transfer_enable(u32 h)	//h-R11
+0023BA 4F22     	STS.L   	PR,@-R15		;handle_t* handle = (handle_t*)&h;
 0023BC D1C3     	MOV.L   	@(#30C,PC),R1	;
 0023BE E000     	MOV     	#00,R0		;
 0023C0 8014     	MOV.B   	R0,@(#04,R1)	;*(u8*)(0x0F000256+0x04) = 0x00;
 0023C2 60B9     	SWAP.W   	R11,R0		;
-0023C4 8010     	MOV.B   	R0,@(#00,R1)	;*(u8*)(0x0F000256+0x00) = arg1[23:16];
+0023C4 8010     	MOV.B   	R0,@(#00,R1)	;*(u8*)(0x0F000256+0x00) = handle->fn;
 0023C6 9862     	MOV.W   	@(#0C4,PC),R8	;
 0023C8 4029     	SHLR16  	R0			;
 0023CA 6703     	MOV     	R0,R7			;
 0023CC 3870     	CMP/EQ 	R7,R8			;
-0023CE 8938     	BT      	L002442		;arg1[15:0] == 0x0000
+0023CE 8938     	BT      	L002442		;handle->arg == 0x0000
 0023D0 8412     	MOV.B   	@(#02,R1),R0	;
 0023D2 690C     	EXTU.B   	R0,R9			;
 0023D4 88FF     	CMP/EQ  	#FF,R0		;
@@ -4375,7 +4375,7 @@ L002442:
 002458 9285     	MOV.W   	@(#10A,PC),R2	;
 00245A D4A9     	MOV.L   	@(#2A4,PC),R4	;
 00245C D9A3     	MOV.L   	@(#28C,PC),R9	;
-00245E 2982     	MOV.L   	R8,@R9		;*(u8*)0x0F000248 = *(u8*)0x0F000254;
+00245E 2982     	MOV.L   	R8,@R9		;*(u32*)0x0F000248 = *(u16*)0x0F000254;
 002460 D99B     	MOV.L   	@(#26C,PC),R9	;
 002462 D79C     	MOV.L   	@(#270,PC),R7	;
 002464 E002     	MOV     	#02,R0		;
@@ -4395,7 +4395,7 @@ L002442:
 002480 201B     	OR      	R1,R0			;
 002482 8171     	MOV.W   	R0,@(#02,R7)	;YGR.TRCTL = 0x0004;
 002484 E002     	MOV     	#02,R0		;
-002486 817F     	MOV.W   	R0,@(#1E,R7)	;YGR.HIRQ = 0x0002;
+002486 817F     	MOV.W   	R0,@(#1E,R7)	;YGR.HIRQ = HIRQ_DRDY;
 002488 4F26     	LDS.L   	@R15+,PR		;
 00248A 000B     	RTS     				;
 00248C 0009     	NOP     				;
@@ -4408,7 +4408,7 @@ DMAC1:							;DMAC1 handler
 002496 D18E     	MOV.L   	@(#238,PC),R1	;
 002498 8517     	MOV.W   	@(#0E,R1),R0	;
 00249A C9F8     	AND     	#F8,R0		;
-00249C 801F     	MOV.B   	R0,@(#0F,R1)	;
+00249C 801F     	MOV.B   	R0,@(#0F,R1)	;DMAC.CHCR1 &= ~0x0007;
 00249E 61F3     	MOV     	R15,R1		;
 0024A0 DF9A     	MOV.L   	@(#268,PC),R15	;SH1.SP = &temp_stack2_end;
 0024A2 E060     	MOV     	#60,R0		;
@@ -4431,65 +4431,70 @@ DMAC1:							;DMAC1 handler
 0024C4 D383     	MOV.L   	@(#20C,PC),R3	;
 0024C6 8421     	MOV.B   	@(#01,R2),R0	;
 0024C8 8800     	CMP/EQ  	#00,R0		;
-0024CA 8935     	BT      	#06A			;
+0024CA 8935     	BT      	L002538		;if (*(u8*)(0x0F000256+0x01) != 0x00) {
 0024CC 8422     	MOV.B   	@(#02,R2),R0	;
 0024CE 690C     	EXTU.B   	R0,R9			;
 0024D0 88FF     	CMP/EQ  	#FF,R0		;
-0024D2 892C     	BT      	#058			;
+0024D2 892C     	BT      	L00252E		;  if (*(u8*)(0x0F000256+0x02) != 0xFF) {
 0024D4 8531     	MOV.W   	@(#02,R3),R0	;
-0024D6 C801     	TST     	#01,R0		;
-0024D8 8B0E     	BF      	#01C			;
+0024D6 C801     	TST     	#01,R0		;    u32 addr; u16 size;
+0024D8 8B0E     	BF      	L0024F8		;    if (YGR.TRCTL & 0x0001 == 0) {
 0024DA D480     	MOV.L   	@(#200,PC),R4	;
-0024DC 6442     	MOV.L   	@R4,R4		;
+0024DC 6442     	MOV.L   	@R4,R4		;      u8* ptr = *(u32*)0x0F00024C;
 0024DE 6040     	MOV.B   	@R4,R0		;
 0024E0 8888     	CMP/EQ  	#88,R0		;
-0024E2 8B24     	BF      	#048			;
+0024E2 8B24     	BF      	L00252E		;      if (*ptr != 0x88) goto L00252E;
 0024E4 D484     	MOV.L   	@(#210,PC),R4	;
-0024E6 440B     	JSR     	@R4			;
+0024E6 440B     	JSR     	@R4			;      L006E18(&addr,&size);
 0024E8 0009     	NOP     				;
-0024EA 1170     	MOV.L   	R7,@(#0,R1)		;
+0024EA 1170     	MOV.L   	R7,@(#0,R1)		;      DMAC.SAR1 = addr;
 0024EC 6083     	MOV     	R8,R0			;
-0024EE 8115     	MOV.W   	R0,@(#0A,R1)	;
+0024EE 8115     	MOV.W   	R0,@(#0A,R1)	;      DMAC.TCR1 = size;
 0024F0 9039     	MOV.W   	@(#072,PC),R0	;
-0024F2 8117     	MOV.W   	R0,@(#0E,R1)	;
-0024F4 A00D     	BRA     	#001A			;
-0024F6 0009     	NOP     				;
-0024F8 D478     	MOV.L   	@(#1E0,PC),R4	;
-0024FA 6442     	MOV.L   	@R4,R4		;
+0024F2 8117     	MOV.W   	R0,@(#0E,R1)	;      DMAC.CHCR1 = 0x125D;
+0024F4 A00D     	BRA     	L002512		;
+0024F6 0009     	NOP     				;    }
+L0024F8:
+0024F8 D478     	MOV.L   	@(#1E0,PC),R4	;    else {
+0024FA 6442     	MOV.L   	@R4,R4		;      u8* ptr = *(u32*)0x0F00024C;
 0024FC 6040     	MOV.B   	@R4,R0		;
 0024FE 8888     	CMP/EQ  	#88,R0		;
-002500 8B15     	BF      	#02A			;
+002500 8B15     	BF      	L00252E		;      if (*ptr != 0x88) goto L00252E;
 002502 D47E     	MOV.L   	@(#1F8,PC),R4	;
-002504 440B     	JSR     	@R4			;
+002504 440B     	JSR     	@R4			;      L006E76(&addr,&size);
 002506 0009     	NOP     				;
-002508 1171     	MOV.L   	R7,@(#4,R1)		;
+002508 1171     	MOV.L   	R7,@(#4,R1)		;      DMAC.DAR1 = addr;
 00250A 6083     	MOV     	R8,R0			;
-00250C 8115     	MOV.W   	R0,@(#0A,R1)	;
+00250C 8115     	MOV.W   	R0,@(#0A,R1)	;      DMAC.TCR1 = size;
 00250E 9029     	MOV.W   	@(#052,PC),R0	;
-002510 8117     	MOV.W   	R0,@(#0E,R1)	;
+002510 8117     	MOV.W   	R0,@(#0E,R1)	;      DMAC.CHCR1 = 0x435D;
+L002512:							;    }
 002512 D977     	MOV.L   	@(#1DC,PC),R9	;
 002514 8422     	MOV.B   	@(#02,R2),R0	;
-002516 600C     	EXTU.B   	R0,R0			;
+002516 600C     	EXTU.B   	R0,R0			;    u8 n = *(u8*)(0x0F000256+0x02);
 002518 009C     	MOV.B   	@(R0,R9),R0		;
-00251A 8022     	MOV.B   	R0,@(#02,R2)	;
+00251A 8022     	MOV.B   	R0,@(#02,R2)	;    *(u8*)(0x0F000256+0x02) = block_chain[n];
 00251C 8421     	MOV.B   	@(#01,R2),R0	;
 00251E 70FF     	ADD     	#FF,R0		;
-002520 8021     	MOV.B   	R0,@(#01,R2)	;
+002520 8021     	MOV.B   	R0,@(#01,R2)	;    *(u8*)(0x0F000256+0x01)--;
 002522 D472     	MOV.L   	@(#1C8,PC),R4	;
 002524 6042     	MOV.L   	@R4,R0		;
 002526 308C     	ADD     	R8,R0			;
-002528 2402     	MOV.L   	R0,@R4		;
-00252A A009     	BRA     	#0012			;
-00252C 0009     	NOP     				;
+002528 2402     	MOV.L   	R0,@R4		;    *(u32*)0x0F000248 += size;
+00252A A009     	BRA     	L002540		;    return;
+00252C 0009     	NOP     				;  }
+L00252E:
 00252E D478     	MOV.L   	@(#1E0,PC),R4	;
 002530 E0FF     	MOV     	#FF,R0		;
-002532 2400     	MOV.B   	R0,@R4		;
-002534 E000     	MOV     	#00,R0		;
-002536 8021     	MOV.B   	R0,@(#01,R2)	;
+002532 2400     	MOV.B   	R0,@R4		;  *(u8*)0x0F00025A = 0xFF;
+002534 E000     	MOV     	#00,R0		;  *(u8*)(0x0F000256+0x01) = 0x00;
+002536 8021     	MOV.B   	R0,@(#01,R2)	;}
+L002538:
 002538 8531     	MOV.W   	@(#02,R3),R0	;
 00253A C901     	AND     	#01,R0		;
 00253C CB08     	OR      	#08,R0		;
-00253E 8131     	MOV.W   	R0,@(#02,R3)	;
+00253E 8131     	MOV.W   	R0,@(#02,R3)	;YGR.TRCTL = (YGR.TRCTL & 0x0001) | 0x0008;
+L002540:
 002540 4F16     	LDS.L   	@R15+,MACL		;
 002542 4F17     	LDC.L   	@R15+,GBR		;
 002544 4F26     	LDS.L   	@R15+,PR		;
@@ -4511,7 +4516,7 @@ DMAC1:							;DMAC1 handler
 002564 435D
 002566 125D
 
-L002568:							;
+L002568:							;void stop_data_transfer(*rr1,*rr2,*rr3,*rr4)
 002568 4F22     	STS.L   	PR,@-R15		;
 00256A D159     	MOV.L   	@(#164,PC),R1	;
 00256C 8517     	MOV.W   	@(#0E,R1),R0	;
@@ -4694,27 +4699,22 @@ L002568:							;
 0026D4 0A000000
 0026D8 0F00
 0026DA 0256
-0026DC 0F00
-0026DE 024C
+0026DC 0F00024C
 0026E0 0F000257
 0026E4 0F00
 0026E6 0259
 0026E8 0F000258
 0026EC 0F000248
-0026F0 0F00
-0026F2 0354
+0026F0 0F000354
 0026F4 0F00
 0026F6 05A0
-0026F8 0000
-0026FA 6E18
-0026FC 0000
-0026FE 6E76
+0026F8 00006E18
+0026FC 00006E76
 002700 0A000000
 002704 0F000250
 002708 0F000254
 00270C 0F0009F8
-002710 0F00
-002712 025A
+002710 0F00025A
 002714 0000
 002716 91A8
 
@@ -4798,7 +4798,7 @@ L002796:							;task6_thread_loop:
 0027AA 8B10     	BF      	L0027CE		;if (handle->fn == 0x81) {
 0027AC 60B3     	MOV     	R11,R0		;
 0027AE 880C     	CMP/EQ  	#0C,R0		;
-0027B0 890B     	BT      	L0027CA		;  if ((u8)handle->arg == 0x0C) goto L0035E4;
+0027B0 890B     	BT      	L0027CA		;  if ((u8)handle->arg == 0x0C) goto task6_func_81_0C;
 0027B2 880D     	CMP/EQ  	#0D,R0		;
 0027B4 8907     	BT      	L0027C6		;  if ((u8)handle->arg == 0x0D) goto L00360E;
 0027B6 8800     	CMP/EQ  	#00,R0		;
@@ -4957,7 +4957,7 @@ L0028B0:							;
 0028C2 430E     	LDC     	R3,SR			;  SH1.SR |= 0x000000F0;
 0028C4 6011     	MOV.W   	@R1,R0		;
 0028C6 205B     	OR      	R5,R0			;
-0028C8 2101     	MOV.W   	R0,@R1		;  YGR.REG1A |= HIRQ_PEND;
+0028C8 2101     	MOV.W   	R0,@R1		;  YGR.REG1A |= 0x0010;
 0028CA 420E     	LDC     	R2,SR			;  //restore SR
 0028CC 6040     	MOV.B   	@R4,R0		;
 0028CE C880     	TST     	#80,R0		;
@@ -4971,7 +4971,7 @@ L0028DC:
 0028DE 430E     	LDC     	R3,SR			;  SH1.SR |= 0x000000F0;
 0028E0 6011     	MOV.W   	@R1,R0		;
 0028E2 2059     	AND     	R5,R0			;
-0028E4 2101     	MOV.W   	R0,@R1		;  YGR.REG1A &= ~HIRQ_PEND;
+0028E4 2101     	MOV.W   	R0,@R1		;  YGR.REG1A &= ~0x0010;
 0028E6 420E     	LDC     	R2,SR			;  //restore SR
 0028E8 E04A     	MOV     	#4A,R0		;
 0028EA CC28     	TST.B   	#28,@(R0,GBR)	;
@@ -5009,7 +5009,7 @@ L002920:
 002920 D025     	MOV.L   	@(#094,PC),R0	;
 002922 6000     	MOV.B   	@R0,R0		;
 002924 C801     	TST     	#01,R0		;
-002926 8904     	BT      	L002932		;if (*(u8*)0x0F0007B0 & 0x01 != 0) {
+002926 8904     	BT      	L002932		;if (auth_device_flag & 0x01 != 0) {
 002928 954A     	MOV.W   	@(#094,PC),R5	;
 00292A E6FF     	MOV     	#FF,R6		;  rr1 = 0x20FF; rr2 = 0xFFFF;
 00292C E7FF     	MOV     	#FF,R7		;  rr3 = 0xFFFF; rr4 = 0xFFFF;
@@ -5125,7 +5125,7 @@ L002A30:							;task6_func_04_tbl:
 	dc.l	L0037C4					;task6_func_04_00()
 	dc.l	L0037FE					;task6_func_04_01()
 
-L002A38:							;
+L002A38:							;void init_toc()
 002A38 E0FF     	MOV     	#FF,R0		;
 002A3A D20B     	MOV.L   	@(#02C,PC),R2	;
 002A3C D10B     	MOV.L   	@(#02C,PC),R1	;u32* ptr = 0x09000204;
@@ -5136,7 +5136,7 @@ L002A3E:
 002A44 8BFB     	BF      	L002A3E		;}
 L002A46:
 002A46 E003     	MOV     	#03,R0		;
-002A48 CD7F     	AND.B   	#7F,@(R0,GBR)	;*(u8*)(0x0F00025C+03)&= 0x7F;
+002A48 CD7F     	AND.B   	#7F,@(R0,GBR)	;cdd_cmd_flags &= 0x7F;
 002A4A D110     	MOV.L   	@(#040,PC),R1	;
 002A4C E000     	MOV     	#00,R0		;
 002A4E 2106     	MOV.L   	R0,@-R1		;*(u32*)0x09000214 = 0x00000000;
@@ -5166,11 +5166,11 @@ L002A46:
 
 L002A90:							;
 002A90 4F22     	STS.L   	PR,@-R15		;
-002A92 B3E0     	BRS     	L003256		;L00418C();
+002A92 B3E0     	BRS     	L003256		;check_and_schedule_task5();//L00418C
 002A94 0009     	NOP     				;
 002A96 4F26     	LDS.L   	@R15+,PR		;
 002A98 4F22     	STS.L   	PR,@-R15		;
-002A9A BFCD     	BRS     	L002A38		;L002A38();
+002A9A BFCD     	BRS     	L002A38		;init_toc();//L002A38
 002A9C 0009     	NOP     				;
 002A9E 4F26     	LDS.L   	@R15+,PR		;
 002AA0 DB07     	MOV.L   	@(#01C,PC),R11	;
@@ -5319,7 +5319,7 @@ L002B9C:
 
 L002BA0:							;make_readtoc_cmd(u8 sesn)	//arg1-R0
 002BA0 C02D     	MOV.B   	R0,@(#02D,GBR)	;session_num = sesn;
-002BA2 D106     	MOV.L   	@(#018,PC),R1	;u8 cmd[12] = {0x03,0x00,0x00,0x00,
+002BA2 D106     	MOV.L   	@(#018,PC),R1	;u8 cmd[12] = {CDD_COMM_TOC,0x00,0x00,0x00,
 002BA4 4028     	SHLL16  	R0			;              0x00,0x00,0x00,0x00,
 002BA6 D206     	MOV.L   	@(#018,PC),R2	;              0x00,0x00,0xFF,0x01};
 002BA8 D306     	MOV.L   	@(#018,PC),R3	;
@@ -5671,7 +5671,7 @@ L002DEE:
 002E28 E004     	MOV     	#04,R0		;
 002E2A C02E     	MOV.B   	R0,@(#02E,GBR)	;cd_status = 0x04;
 
-L002E2C:							;(u32 fad,u32 arg2,arg3)//fad-R6,arg2-R7,arg3-R8
+L002E2C:							;(u32 fad,u32 arg2,u8 arg3)//fad-R6,arg2-R7,arg3-R8
 002E2C E04A     	MOV     	#4A,R0		;
 002E2E CF08     	OR .B   	#08,@(R0,GBR)	;cd_flags |= 0x08;
 002E30 4F22     	STS.L   	PR,@-R15		;
@@ -5679,12 +5679,12 @@ L002E2C:							;(u32 fad,u32 arg2,arg3)//fad-R6,arg2-R7,arg3-R8
 002E34 0009     	NOP     				;
 002E36 4F26     	LDS.L   	@R15+,PR		;
 002E38 4828     	SHLL16  	R8			;
-002E3A D10B     	MOV.L   	@(#02C,PC),R1	;u8 cmd[12] = {0x09,0x00,0x00,0x00,
+002E3A D10B     	MOV.L   	@(#02C,PC),R1	;u8 cmd[12] = {CDD_COMM_SEEK,0x00,0x00,0x00,
 002E3C 4818     	SHLL8   	R8			;              0x00,0x00,0x00,0x00,
-002E3E 6273     	MOV     	R7,R2			;              0x09,0x00,0xFF,0x01};
+002E3E 6273     	MOV     	R7,R2			;              0x00,0x00,0xFF,0x01};
 002E40 D30A     	MOV.L   	@(#028,PC),R3	;*(u32*)&cmd[0] |= fad;
 002E42 216B     	OR      	R6,R1			;*(u32*)&cmd[4] = arg2;
-002E44 238B     	OR      	R8,R3			;*(u32*)&cmd[8] |= arg3;
+002E44 238B     	OR      	R8,R3			;cmd[8] = arg3;
 002E46 4F22     	STS.L   	PR,@-R15		;
 002E48 B205     	BRS     	L003256		;make_cdd_cmd(cmd);
 002E4A 0009     	NOP     				;
@@ -5823,29 +5823,29 @@ L002E2C:							;(u32 fad,u32 arg2,arg3)//fad-R6,arg2-R7,arg3-R8
 002F5A 0009     	NOP     				;
 
 002F5C E0FF     	MOV     	#FF,R0		;
-002F5E C220     	MOV.L   	R0,@(#080,GBR)	;*(u32*)(0x0F00025C+0x80) = 0x00000000;
+002F5E C220     	MOV.L   	R0,@(#080,GBR)	;*(u32*)(0x0F00025C+0x80) = 0xFFFFFFFF;
 002F60 C444     	MOV.B   	@(#044,GBR),R0	;
 002F62 8801     	CMP/EQ  	#01,R0		;
 002F64 E800     	MOV     	#00,R8		;u32 temp2 = 0;
 002F66 277A     	XOR     	R7,R7			;u32 temp = 0;
-002F68 C611     	MOV.L   	@(#044,GBR),R0	;u32 fad = *(u32*)(0x0F00025C+0x44);
-002F6A 8B0F     	BF      	L002F8C		;*(u8*)(0x0F00025C+0x44) != 0x01
+002F68 C611     	MOV.L   	@(#044,GBR),R0	;
+002F6A 8B0F     	BF      	L002F8C		;if (*(u8*)(0x0F00025C+0x44) == 0x01) {
 002F6C 630D     	EXTU.W   	R0,R3			;
-002F6E 643C     	EXTU.B   	R3,R4			;
-002F70 4319     	SHLR8   	R3			;
-002F72 4F22     	STS.L   	PR,@-R15		;
-002F74 B179     	BRS     	L00326A		;L00326A();
+002F6E 643C     	EXTU.B   	R3,R4			;  u8 arg2 = *(u8*)(0x0F00025C+0x47);
+002F70 4319     	SHLR8   	R3			;  u8 track = *(u8*)(0x0F00025C+0x46);
+002F72 4F22     	STS.L   	PR,@-R15		;  u32 fad_temp;
+002F74 B179     	BRS     	L00326A		;  u32 fad_start = get_track_info(track,arg2,&fad_temp);
 002F76 0009     	NOP     				;
 002F78 4F26     	LDS.L   	@R15+,PR		;
 002F7A 6743     	MOV     	R4,R7			;
 002F7C 2778     	TST     	R7,R7			;
-002F7E 8B00     	BF      	#000			;
-002F80 C211     	MOV.L   	R0,@(#044,GBR)	;
+002F7E 8B00     	BF      	#000			;  if (fad_temp == 0)
+002F80 C211     	MOV.L   	R0,@(#044,GBR)	;    *(u32*)(0x0F00025C+0x44) = fad_start;
 002F82 D11F     	MOV.L   	@(#07C,PC),R1	;
 002F84 3010     	CMP/EQ 	R1,R0			;
 002F86 8B01     	BF      	L002F8C		;
-002F88 AF31     	BRA     	L002DEE		;
-002F8A 0009     	NOP     				;
+002F88 AF31     	BRA     	L002DEE		;  if (fad_start == 0x00FFFFFF) goto L002DEE;
+002F8A 0009     	NOP     				;}
 L002F8C:
 002F8C 6603     	MOV     	R0,R6			;
 002F8E E04B     	MOV     	#4B,R0		;
@@ -5855,9 +5855,9 @@ L002F8C:
 002F96 E004     	MOV     	#04,R0		;
 002F98 C02E     	MOV.B   	R0,@(#02E,GBR)	;cd_status = cd_flags2 & 0x04 == 0 ? 0x04 : 0x08;
 002F9A E04A     	MOV     	#4A,R0		;
-002F9C CF08     	OR .B   	#08,@(R0,GBR)	;
+002F9C CF08     	OR .B   	#08,@(R0,GBR)	;cd_flags |= 0x08;
 002F9E 4F22     	STS.L   	PR,@-R15		;
-002FA0 B34E     	BRS     	#069C			;
+002FA0 B34E     	BRS     	L004300		;L004300
 002FA2 0009     	NOP     				;
 002FA4 4F26     	LDS.L   	@R15+,PR		;
 002FA6 E04B     	MOV     	#4B,R0		;
@@ -5903,8 +5903,7 @@ L002F8C:
 002FF6 0000
 002FF8 06000000
 002FFC 0000FF01
-003000 00FF
-003002 FFFF
+003000 00FFFFFF
 003004 E04B     	MOV     	#4B,R0		;
 003006 CDD3     	AND.B   	#D3,@(R0,GBR)	;
 003008 C401     	MOV.B   	@(#001,GBR),R0	;
@@ -6071,7 +6070,7 @@ L00312A:							;}
 00313C D209     	MOV.L   	@(#024,PC),R2	;              0x00,0x00,0x00,0x00,
 00313E D30A     	MOV.L   	@(#028,PC),R3	;              0x00,0x00,0xFF,0x01};
 003140 4F22     	STS.L   	PR,@-R15		;
-003142 B08A     	BRS     	#0114			;make_cdd_cmd(cmd);//L004148
+003142 B08A     	BRS     	L00325A		;make_cdd_cmd(cmd);//L004148
 003144 0009     	NOP     				;
 003146 4F26     	LDS.L   	@R15+,PR		;
 003148 DB08     	MOV.L   	@(#020,PC),R11	;
@@ -6222,54 +6221,57 @@ L003266:							;
 003266 AC13     	BRA     	#1826			;
 003268 0009     	NOP     				;
 
-L00326A:							;(u8 track,u8 arg1)//track-R3,arg1-R4
+L00326A:							;u32 get_track_info(u8 track,u8 arg1,u32* ret)//track-R3,arg1-R4,ret-R4
 00326A 4F22     	STS.L   	PR,@-R15		;
 00326C B7CD     	BRS     	L00420A		;u32 toc_data = get_toc_data(track);
 00326E 6133     	MOV     	R3,R1			;
 003270 4F26     	LDS.L   	@R15+,PR		;
-003272 6803     	MOV     	R0,R8			;track_t* track_info = (track_t*)&toc_data;
+003272 6803     	MOV     	R0,R8			;track_t* track_data = (track_t*)&toc_data;
 003274 4029     	SHLR16  	R0			;
 003276 4019     	SHLR8   	R0			;
 003278 C840     	TST     	#40,R0		;
-00327A 8908     	BT      	L00328E		;track_info->ctrl_adr & 0x40 == 0
-00327C 6043     	MOV     	R4,R0			;
+00327A 8908     	BT      	L00328E		;
+00327C 6043     	MOV     	R4,R0			;  
 00327E 8800     	CMP/EQ  	#00,R0		;
-003280 8901     	BT      	L003286		;arg1 == 0x00
-003282 8801     	CMP/EQ  	#01,R0		;
-003284 8B06     	BF      	L003294		;arg1 != 0x01
-003286 6083     	MOV     	R8,R0			;
-003288 E400     	MOV     	#00,R4		;
-00328A A018     	BRA     	L0032BE		;
-00328C E800     	MOV     	#00,R8		;
+003280 8901     	BT      	L003286		;
+003282 8801     	CMP/EQ  	#01,R0		;if (track_data->ctrl_adr & 0x40 != 0 &&
+003284 8B06     	BF      	L003294		;    (arg1 == 0x00 || arg1 == 0x01)) {
+L003286:
+003286 6083     	MOV     	R8,R0			;  R8 = 0;
+003288 E400     	MOV     	#00,R4		;  *ret = 0;
+00328A A018     	BRA     	L0032BE		;  return track_data->fad;
+00328C E800     	MOV     	#00,R8		;}
 L00328E:
 00328E 2448     	TST     	R4,R4			;
-003290 8B00     	BF      	#000			;
-003292 E401     	MOV     	#01,R4		;
+003290 8B00     	BF      	L003294		;else if (arg1 == 0x00)
+003292 E401     	MOV     	#01,R4		;  *ret = 1<<24;
 L003294:
 003294 6133     	MOV     	R3,R1			;
 003296 7101     	ADD     	#01,R1		;
 003298 D09B     	MOV.L   	@(#26C,PC),R0	;
 00329A 6200     	MOV.B   	@R0,R2		;
-00329C 622C     	EXTU.B   	R2,R2			;
+00329C 622C     	EXTU.B   	R2,R2			;info_track_t* trackA0_data = (info_track_t*)&toc_dram_buf[100-1];
 00329E 3126     	CMP/HI 	R2,R1			;
-0032A0 8B02     	BF      	#004			;
-0032A2 D29A     	MOV.L   	@(#268,PC),R2	;
-0032A4 A004     	BRA     	#0008			;
-0032A6 6022     	MOV.L   	@R2,R0		;
-0032A8 4F22     	STS.L   	PR,@-R15		;
-0032AA B1C7     	BRS     	#038E			;
+0032A0 8B02     	BF      	L0032A8		;if (track + 1 > trackA0_data->num) {
+0032A2 D29A     	MOV.L   	@(#268,PC),R2	;  track_t* trackA1_data = (info_track_t*)&toc_dram_buf[101-1];
+0032A4 A004     	BRA     	L0032B0		;  fad = trackA1_data->fad;
+0032A6 6022     	MOV.L   	@R2,R0		;}
+L0032A8:
+0032A8 4F22     	STS.L   	PR,@-R15		;else 
+0032AA B1C7     	BRS     	L00420A		;  fad = get_toc_data(track + 1);
 0032AC 0009     	NOP     				;
 0032AE 4F26     	LDS.L   	@R15+,PR		;
+L0032B0:
 0032B0 4018     	SHLL8   	R0			;
 0032B2 4019     	SHLR8   	R0			;
 0032B4 4428     	SHLL16  	R4			;
 0032B6 4418     	SHLL8   	R4			;
-0032B8 240B     	OR      	R0,R4			;
+0032B8 240B     	OR      	R0,R4			;*ret |= fad;
 0032BA 6083     	MOV     	R8,R0			;
-0032BC 6833     	MOV     	R3,R8			;
+0032BC 6833     	MOV     	R3,R8			;R8 = track;
 L0032BE:
 0032BE 4018     	SHLL8   	R0			;
-0032C0 000B     	RTS     				;
+0032C0 000B     	RTS     				;return track_data->fad;
 0032C2 4019     	SHLR8   	R0			;
 
 L0032C4:
@@ -6562,10 +6564,8 @@ L0032C4:
 003502 0294
 003504 0900
 003506 01F5
-003508 0900
-00350A 01F9
-00350C 0900
-00350E 01FC     	MOV.B   	@(R0,R15),R1	;
+003508 090001F9
+00350C 090001FC
 003510 C602     	MOV.L   	@(#008,GBR),R0	;
 003512 8800     	CMP/EQ  	#00,R0		;
 003514 8906     	BT      	#00C			;
@@ -6673,7 +6673,7 @@ L0032C4:
 0035E0 0900
 0035E2 01FC
 
-L0035E4:
+L0035E4:							;task6_func_81_0C:
 0035E4 DB10     	MOV.L   	@(#040,PC),R11	;
 0035E6 C32A     	TRAPA   	#2A			;
 0035E8 C42C     	MOV.B   	@(#02C,GBR),R0	;
@@ -6691,10 +6691,10 @@ L0035F6:
 0035FE DB0A     	MOV.L   	@(#028,PC),R11	;
 003600 D006     	MOV.L   	@(#018,PC),R0	;
 003602 4F22     	STS.L   	PR,@-R15		;
-003604 400B     	JSR     	@R0			;L0023BA();
+003604 400B     	JSR     	@R0			;data_transfer_enable(0x03060000);//L0023BA
 003606 0009     	NOP     				;
 003608 4F26     	LDS.L   	@R15+,PR		;
-00360A A8C4     	BRA     	#1188			;
+00360A A8C4     	BRA     	L002796		;goto task6_thread_loop;
 00360C 0009     	NOP     				;
 
 L00360E:
@@ -6710,8 +6710,7 @@ L00360E:
 003622 0250
 003624 0F00
 003626 0254
-003628 0306
-00362A 0000
+003628 03060000
 00362C 0900
 00362E 021A
 003630 0900
@@ -6720,9 +6719,11 @@ L00360E:
 003636 0000
 003638 0900
 00363A 0068
-00363C A5E5     	BRA     	#0BCA			;
+L00363C:
+00363C A5E5     	BRA     	L00420A		;
 00363E 0009     	NOP     				;
-003640 A65E     	BRA     	#0CBC			;
+L003640:
+003640 A65E     	BRA     	L004300		;
 003642 0009     	NOP     				;
 003644 A6BE     	BRA     	#0D7C			;
 003646 0009     	NOP     				;
@@ -6926,9 +6927,9 @@ L003778:							;void task6_func_07_04()
 
 0037C4 E04B     	MOV     	#4B,R0		;
 0037C6 CC40     	TST.B   	#40,@(R0,GBR)	;
-0037C8 890E     	BT      	#01C			;
+0037C8 890E     	BT      	L0037E8		;
 0037CA CC80     	TST.B   	#80,@(R0,GBR)	;
-0037CC 890C     	BT      	#018			;
+0037CC 890C     	BT      	L0037E8		;
 0037CE C614     	MOV.L   	@(#050,GBR),R0	;
 0037D0 4018     	SHLL8   	R0			;
 0037D2 4019     	SHLR8   	R0			;
@@ -6936,14 +6937,16 @@ L003778:							;void task6_func_07_04()
 0037D6 BD75     	BRS     	#1AEA			;
 0037D8 C211     	MOV.L   	R0,@(#044,GBR)	;
 0037DA 4F26     	LDS.L   	@R15+,PR		;
-0037DC 8B06     	BF      	#00C			;
+0037DC 8B06     	BF      	L0037EC		;
 0037DE E006     	MOV     	#06,R0		;
 0037E0 C002     	MOV.B   	R0,@(#002,GBR)	;
 0037E2 C619     	MOV.L   	@(#064,GBR),R0	;
-0037E4 ABBA     	BRA     	#1774			;
+0037E4 ABBA     	BRA     	L002F5C		;
 0037E6 C211     	MOV.L   	R0,@(#044,GBR)	;
+L0037E8:
 0037E8 000B     	RTS     				;
 0037EA 0009     	NOP     				;
+L0037EC:
 0037EC 4F22     	STS.L   	PR,@-R15		;
 0037EE B2DD     	BRS     	#05BA			;
 0037F0 0009     	NOP     				;
@@ -6953,16 +6956,18 @@ L003778:							;void task6_func_07_04()
 0037F8 0009     	NOP     				;
 0037FA AB81     	BRA     	#1702			;
 0037FC 0009     	NOP     				;
+
+L0037FE:							;void task6_func_04_01()
 0037FE E04B     	MOV     	#4B,R0		;
 003800 CC40     	TST.B   	#40,@(R0,GBR)	;
-003802 89F1     	BT      	#1E2			;
+003802 89F1     	BT      	L0037E8		;
 003804 CC80     	TST.B   	#80,@(R0,GBR)	;
-003806 8BEF     	BF      	#1DE			;
+003806 8BEF     	BF      	L0037E8		;
 003808 C614     	MOV.L   	@(#050,GBR),R0	;
 00380A 4018     	SHLL8   	R0			;
 00380C 4019     	SHLR8   	R0			;
 00380E 4F22     	STS.L   	PR,@-R15		;
-003810 BD58     	BRS     	#1AB0			;
+003810 BD58     	BRS     	L0032C4		;L0032C4();
 003812 C211     	MOV.L   	R0,@(#044,GBR)	;
 003814 4F26     	LDS.L   	@R15+,PR		;
 003816 8BE9     	BF      	#1D2			;
@@ -6971,11 +6976,10 @@ L003778:							;void task6_func_07_04()
 00381C E00A     	MOV     	#0A,R0		;
 00381E C049     	MOV.B   	R0,@(#049,GBR)	;cd_state = 0x0A;
 003820 DB01     	MOV.L   	@(#004,PC),R11	;
-003822 C321     	TRAPA   	#21			;
-003824 AC81     	BRA     	#1902			;
+003822 C321     	TRAPA   	#33			;TRAPA_33(0x05060009);
+003824 AC81     	BRA     	L00312A		;goto L00312A;
 003826 0009     	NOP     				;
-003828 0506     	MOV.L   	R0,@(R0,R5)		;
-00382A 0009     	NOP     				;
+003828 05060009
 
 L00382C:
 00382C C42D     	MOV.B   	@(#02D,GBR),R0	;
@@ -7428,7 +7432,7 @@ L003B6E:
 003B7A 0009     	NOP     				;
 
 L003B7C:
-003B7C 00003BA0
+003B7C L003BA0
 003B80 00003C96
 003B84 00003CAC
 003B88 00003DEE
@@ -7436,8 +7440,9 @@ L003B7C:
 003B90 00003E5E
 003B94 00003E62
 003B98 00003EB4
-003B9C 00003EC2
+003B9C L003EC2
 
+L003BA0:							;
 003BA0 6023     	MOV     	R2,R0			;
 003BA2 8803     	CMP/EQ  	#03,R0		;
 003BA4 890E     	BT      	#01C			;
@@ -7562,17 +7567,22 @@ L003C4E:
 003C90 000B     	RTS     				;
 003C92 0009     	NOP     				;
 003C94 2710     	MOV.B   	R1,@R7		;
+
+L003C96:							;
 003C96 6023     	MOV     	R2,R0			;
 003C98 8804     	CMP/EQ  	#04,R0		;
-003C9A 8905     	BT      	#00A			;
+003C9A 8905     	BT      	L003CA8		;
 003C9C 8801     	CMP/EQ  	#01,R0		;
-003C9E 8901     	BT      	#002			;
+003C9E 8901     	BT      	L003CA4		;
 003CA0 000B     	RTS     				;
 003CA2 0009     	NOP     				;
+L003CA4:
 003CA4 AF87     	BRA     	#1F0E			;
 003CA6 0009     	NOP     				;
+L003CA8:
 003CA8 000B     	RTS     				;
 003CAA 0009     	NOP     				;
+
 003CAC 6023     	MOV     	R2,R0			;
 003CAE 8804     	CMP/EQ  	#04,R0		;
 003CB0 8907     	BT      	#00E			;
@@ -7846,16 +7856,18 @@ L003DE2:
 003EBC 8908     	BT      	#010			;
 003EBE 000B     	RTS     				;
 003EC0 0009     	NOP     				;
+
+L003EC2:
 003EC2 6023     	MOV     	R2,R0			;
 003EC4 8803     	CMP/EQ  	#03,R0		;
-003EC6 8905     	BT      	#00A			;
+003EC6 8905     	BT      	L003ED4		;
 003EC8 8801     	CMP/EQ  	#01,R0		;
 003ECA 8901     	BT      	#002			;
 003ECC 000B     	RTS     				;
 003ECE 0009     	NOP     				;
 003ED0 AE71     	BRA     	#1CE2			;
 003ED2 0009     	NOP     				;
-
+L003ED4:
 003ED4 C60E     	MOV.L   	@(#038,GBR),R0	;
 003ED6 6903     	MOV     	R0,R9			;u32 fad = *(u32*)(0x0F00025C+0x38);
 003ED8 E074     	MOV     	#74,R0		;
@@ -7874,7 +7886,7 @@ L003DE2:
 003EF2 A004     	BRA     	#0008			;
 003EF4 CF10     	OR .B   	#10,@(R0,GBR)	;
 003EF6 4F22     	STS.L   	PR,@-R15		;
-003EF8 B1E0     	BRS     	#03C0			;
+003EF8 B1E0     	BRS     	L0042BC		;L0042BC();
 003EFA 0009     	NOP     				;
 003EFC 4F26     	LDS.L   	@R15+,PR		;
 003EFE E04B     	MOV     	#4B,R0		;
@@ -7897,10 +7909,10 @@ L003DE2:
 003F20 3106     	CMP/HI 	R0,R1			;
 003F22 895B     	BT      	L003FDC		;
 003F24 E04A     	MOV     	#4A,R0		;
-003F26 CF08     	OR .B   	#08,@(R0,GBR)	;
+003F26 CF08     	OR .B   	#08,@(R0,GBR)	;cd_flags |= 0x08;
 003F28 E04B     	MOV     	#4B,R0		;
-003F2A CF08     	OR .B   	#08,@(R0,GBR)	;
-003F2C CD1B     	AND.B   	#1B,@(R0,GBR)	;
+003F2A CF08     	OR .B   	#08,@(R0,GBR)	;cd_flags2 |= 0x08;
+003F2C CD1B     	AND.B   	#1B,@(R0,GBR)	;cd_flags2 &= ~0xE4;
 003F2E E003     	MOV     	#03,R0		;
 003F30 CC40     	TST.B   	#40,@(R0,GBR)	;
 003F32 8903     	BT      	#006			;
@@ -7941,7 +7953,7 @@ L003F4A:
 003F74 D207     	MOV.L   	@(#01C,PC),R2	;
 003F76 D308     	MOV.L   	@(#020,PC),R3	;
 003F78 791E     	ADD     	#1E,R9		;
-003F7A 219B     	OR      	R9,R1			;  *((u32*)cmd[4]) |= fad + 30;
+003F7A 219B     	OR      	R9,R1			;  *((u32*)&cmd[0]) |= fad + 30;
 003F7C E004     	MOV     	#04,R0		;
 003F7E C049     	MOV.B   	R0,@(#049,GBR)	;  cd_state = 0x04;
 003F80 4F22     	STS.L   	PR,@-R15		;
@@ -8403,8 +8415,10 @@ L004214:							;void save_toc_data(u8 pos, u32 data)	//pos-R1,data-R2
 0042F6 000B     	RTS     				;
 0042F8 0009     	NOP     				;
 0042FA 0009     	NOP     				;
-0042FC 0005     	MOV.W   	R0,@(R0,R0)		;
-0042FE 7E40     	ADD     	#40,R14		;
+0042FC 0005
+0042FE 7E40
+
+L004300:							;
 004300 E044     	MOV     	#44,R0		;
 004302 CC01     	TST.B   	#01,@(R0,GBR)	;
 004304 8B26     	BF      	#04C			;
@@ -8444,8 +8458,8 @@ L004214:							;void save_toc_data(u8 pos, u32 data)	//pos-R1,data-R2
 004348 A013     	BRA     	#0026			;
 00434A 0009     	NOP     				;
 00434C 0900     	
-00434E 01F6     	MOV.L   	R15,@(R0,R1)	;
-004350 4100     	SHLL    	R1			;
+00434E 01F6
+004350 4100
 004352 0000     	
 004354 C447     	MOV.B   	@(#047,GBR),R0	;
 004356 C032     	MOV.B   	R0,@(#032,GBR)	;
@@ -9185,7 +9199,7 @@ L0048BA:
 0048BA D217     	MOV.L   	@(#05C,PC),R2	;
 0048BC 8527     	MOV.W   	@(#0E,R2),R0	;
 0048BE C9FE     	AND     	#FE,R0		;
-0048C0 8127     	MOV.W   	R0,@(#0E,R2)	;SH1.DMAC.CHCR0 &= 0xFFFE;
+0048C0 8127     	MOV.W   	R0,@(#0E,R2)	;SH1.DMAC.CHCR0 &= ~0x0001;
 0048C2 B155     	BRS     	L004B70		;L004B70();
 0048C4 0009     	NOP     				;
 0048C6 8475     	MOV.B   	@(#05,R7),R0	;
@@ -9303,7 +9317,7 @@ L004954:
 0049A6 8541     	MOV.W   	@(#02,R4),R0	;
 0049A8 2029     	AND     	R2,R0			;
 0049AA 201B     	OR      	R1,R0			;
-0049AC 8141     	MOV.W   	R0,@(#02,R4)	;  YGR.REG1A = (YGR.REG1A & 0xFFF8) | 0x0002;
+0049AC 8141     	MOV.W   	R0,@(#02,R4)	;  YGR.REG1A = (YGR.REG1A & !0x0007) | 0x0002;
 0049AE 4A0E     	LDC     	R10,SR		;  //restore SR
 0049B0 AE16     	BRA     	L0045E0		;  goto L0045E0;
 0049B2 0009     	NOP     				;}
@@ -9317,7 +9331,6 @@ L0049B4:
 0049C0 C321     	TRAPA   	#33			;add_task_to_queue(0x06040001);
 0049C2 AE0D     	BRA     	L0045E0		;goto L0045E0;
 0049C4 0009     	NOP     				;
-
 L0049C6:
 0049C6 D238     	MOV.L   	@(#0E0,PC),R2	;
 0049C8 6020     	MOV.B   	@R2,R0		;
@@ -14163,6 +14176,7 @@ L006E14:
 006E14 000B     	RTS     				;
 006E16 0009     	NOP     				;
 
+L006E18:							;
 006E18 D82F     	MOV.L   	@(#0BC,PC),R8	;
 006E1A 289E     	MULU.W  	R9,R8			;
 006E1C D72F     	MOV.L   	@(#0BC,PC),R7	;
@@ -15450,7 +15464,7 @@ L007794:							;void clear_selector_param()
 L0077A8:							;init()
 0077A8 200A     	XOR     	R0,R0			;
 0077AA D1EC     	MOV.L   	@(#3B0,PC),R1	;
-0077AC 2101     	MOV.W   	R0,@R1		;*(u16*)0x0F000786 = 0x0000;
+0077AC 2101     	MOV.W   	R0,@R1		;auth_status_cd = 0x0000;
 0077AE 000B     	RTS     				;
 0077B0 0009     	NOP     				;
 
@@ -15491,27 +15505,27 @@ L0077E2:							;task7_func_rest:
 0077EE 6010     	MOV.B   	@R1,R0		;
 0077F0 600C     	EXTU.B   	R0,R0			;
 0077F2 8802     	CMP/EQ  	#02,R0		;
-0077F4 8B02     	BF      	L0077FC		;if (*(u8*)0x0907ADCB == 0x02) {
-0077F6 E000     	MOV     	#00,R0		;  *(u8*)(0x0F000786+0x01) = 0x00;
+0077F4 8B02     	BF      	L0077FC		;if (task7_state == 0x02) {
+0077F6 E000     	MOV     	#00,R0		;  auth_status_cd = AUTH_STAT_NO_CD;
 0077F8 A00B     	BRA     	L007812		;  *(u8*)0x0F000788 = 0x00;
 0077FA 0009     	NOP     				;
 L0077FC:
 0077FC 8807     	CMP/EQ  	#07,R0		;}
 0077FE 8B02     	BF      	L007806		;
-007800 D08D     	MOV.L   	@(#234,PC),R0	;else if (*(u8*)0x0907ADCB == 0x07) {
+007800 D08D     	MOV.L   	@(#234,PC),R0	;else if (task7_state == 0x07) {
 007802 402B     	JMP     	@R0			;  
 007804 0009     	NOP     				;}
 L007806:
 007806 8803     	CMP/EQ  	#03,R0		;
-007808 8B02     	BF      	L007810 		;else if (*(u8*)0x0907ADCB == 0x03) {
-00780A E000     	MOV     	#00,R0		;  *(u8*)(0x0F000786+0x01) = 0x00;
+007808 8B02     	BF      	L007810 		;else if (task7_state == 0x03) {
+00780A E000     	MOV     	#00,R0		;  auth_status_cd = AUTH_STAT_NO_CD;
 00780C A001     	BRA     	L007812		;  *(u8*)0x0F000788 = 0x00;
 00780E 0009     	NOP     				;}
 L007810:
 007810 E003     	MOV     	#03,R0		;else {
 L007812:
 007812 D1D2     	MOV.L   	@(#348,PC),R1	;
-007814 8011     	MOV.B   	R0,@(#01,R1)	;  *(u8*)(0x0F000786+0x01) = 0x03;
+007814 8011     	MOV.B   	R0,@(#01,R1)	;  auth_status_cd = AUTH_STAT_NON_SATURN_DISK;
 007816 D1CE     	MOV.L   	@(#338,PC),R1	;
 007818 200A     	XOR     	R0,R0			;
 00781A 2100     	MOV.B   	R0,@R1		;  *(u8*)0x0F000788 = 0x00;
@@ -15529,7 +15543,7 @@ L007822:							;task7_func_06:
 00782E 8800     	CMP/EQ  	#00,R0		;
 007830 8902     	BT      	L007838		;
 007832 D17F     	MOV.L   	@(#1FC,PC),R1	;
-007834 412B     	JMP     	@R1			;  if (*(u8*)0x0F0007B0 != 0) goto L008494();
+007834 412B     	JMP     	@R1			;  if (auth_device_flag != 0) goto L008494();
 007836 0009     	NOP     				;
 L007838:
 007838 4F22     	STS.L   	PR,@-R15		;
@@ -15568,28 +15582,28 @@ L007864:							;task7_func_81:
 007870 8901     	BT      	#002			;  if (*(u32*)0x0F000760 != 0)
 007872 A1C8     	BRA     	L007C06		;    goto L007C06;
 007874 0009     	NOP     				;
-007876 A179     	BRA     	L007B6C		;  goto L007B6C;
+007876 A179     	BRA     	L007B6C		;  goto task7_func_810000;
 007878 0009     	NOP     				;}
 L00787A:
 00787A 8801     	CMP/EQ  	#01,R0		;
 00787C 8B01     	BF      	#002			;else if (handle.arg == 0x0001) 
-00787E A303     	BRA     	L007E88		;  goto L007E88;
+00787E A303     	BRA     	L007E88		;  goto task7_func_810001;
 007880 0009     	NOP     				;
 007882 8804     	CMP/EQ  	#04,R0		;
 007884 8B01     	BF      	#002			;else if (handle.arg == 0x0004) 
-007886 A343     	BRA     	L007F10		;  goto L007F10;
+007886 A343     	BRA     	L007F10		;  goto task7_func_810004;
 007888 0009     	NOP     				;
 00788A 8805     	CMP/EQ  	#05,R0		;
 00788C 8B01     	BF      	#002			;else if (handle.arg == 0x0005) 
-00788E A359     	BRA     	L007F44		;  goto L007F44;
+00788E A359     	BRA     	L007F44		;  goto task7_func_810005;
 007890 0009     	NOP     				;
 007892 8802     	CMP/EQ  	#02,R0		;
 007894 8B01     	BF      	#002			;else if (handle.arg == 0x0002) 
-007896 A377     	BRA     	L007F88		;  goto L007F88;
+007896 A377     	BRA     	L007F88		;  goto task7_func_810002;
 007898 0009     	NOP     				;
 00789A 8806     	CMP/EQ  	#06,R0		;
 00789C 8B01     	BF      	#002			;else if (handle.arg == 0x0006) 
-00789E A4C3     	BRA     	L008228		;  goto L008228;
+00789E A4C3     	BRA     	L008228		;  goto task7_func_810006;
 0078A0 0009     	NOP     				;
 0078A2 8807     	CMP/EQ  	#07,R0		;
 0078A4 8B01     	BF      	#002			;else if (handle.arg == 0x0007) 
@@ -15599,6 +15613,7 @@ L00787A:
 0078AC 8B88     	BF      	L0077C0		;else if (handle.arg == 0x0008) 
 0078AE A62F     	BRA     	L008510		;  goto task7_func_810008;
 0078B0 0009     	NOP     				;else goto task7_thread_loop;
+
 L0078B2:							;task7_func_810007:
 0078B2 D164     	MOV.L   	@(#190,PC),R1	;
 0078B4 6010     	MOV.B   	@R1,R0		;
@@ -15637,20 +15652,20 @@ L0078EE:
 0078F0 6010     	MOV.B   	@R1,R0		;
 0078F2 600C     	EXTU.B   	R0,R0			;
 0078F4 8801     	CMP/EQ  	#01,R0		;
-0078F6 892D     	BT      	L007954		;if (*(u8*)0x0907ADCB == 0x01)
+0078F6 892D     	BT      	L007954		;if (task7_state == 0x01)
 0078F8 8803     	CMP/EQ  	#03,R0		;  goto L007954;
-0078FA 8B01     	BF      	#002			;else if (*(u8*)0x0907ADCB == 0x03)
+0078FA 8B01     	BF      	#002			;else if (task7_state == 0x03)
 0078FC A6E9     	BRA     	L0086D2		;  goto task7_process_boot_sector;
 0078FE 0009     	NOP     				;
 007900 8806     	CMP/EQ  	#06,R0		;
 007902 8B02     	BF      	#004			;
-007904 D04E     	MOV.L   	@(#138,PC),R0	;else if (*(u8*)0x0907ADCB == 0x06)
+007904 D04E     	MOV.L   	@(#138,PC),R0	;else if (task7_state == 0x06)
 007906 402B     	JMP     	@R0			;  goto L008A60;
 007908 0009     	NOP     				;
 00790A 8807     	CMP/EQ  	#07,R0		;
-00790C 891F     	BT      	L00794E		;else if (*(u8*)0x0907ADCB == 0x07)
+00790C 891F     	BT      	L00794E		;else if (task7_state == 0x07)
 00790E 8804     	CMP/EQ  	#04,R0		;  goto L008DA8;
-007910 8901     	BT      	#002			;else if (*(u8*)0x0907ADCB != 0x04)
+007910 8901     	BT      	#002			;else if (task7_state != 0x04)
 007912 AF55     	BRA     	L0077C0		;  goto task7_thread_loop;
 007914 0009     	NOP     				;
 007916 4F22     	STS.L   	PR,@-R15		;else {
@@ -15833,8 +15848,8 @@ L007A60:							;void task7_tread_init()
 007A7C D327     	MOV.L   	@(#09C,PC),R3	;
 007A7E 2300     	MOV.B   	R0,@R3		;curr_buf_num = 0x00;
 007A80 D128     	MOV.L   	@(#0A0,PC),R1	;
-007A82 2102     	MOV.L   	R0,@R1		;*(u32*)0x0907ADB0 = 0x00000000;
-007A84 1101     	MOV.L   	R0,@(#4,R1)		;*(u32*)0x0907ADB4 = 0x00000000;
+007A82 2102     	MOV.L   	R0,@R1		;auth_device_cmd = {0x0000,0x0000,0x0000,0x0000};
+007A84 1101     	MOV.L   	R0,@(#4,R1)		;
 007A86 D128     	MOV.L   	@(#0A0,PC),R1	;
 007A88 2102     	MOV.L   	R0,@R1		;*(u32*)0x0907ADB8 = 0x00000000;
 007A8A 1101     	MOV.L   	R0,@(#4,R1)		;*(u32*)0x0907ADBC = 0x00000000;
@@ -15866,7 +15881,7 @@ L007A60:							;void task7_tread_init()
 L007ABC:							;void task7_reinit()
 007ABC E000     	MOV     	#00,R0		;
 007ABE D127     	MOV.L   	@(#09C,PC),R1	;
-007AC0 8011     	MOV.B   	R0,@(#01,R1)	;*(u8*)(0x00F000786+0x01) = 0x00;
+007AC0 8011     	MOV.B   	R0,@(#01,R1)	;auth_status_cd = AUTH_STAT_NO_CD;
 007AC2 D123     	MOV.L   	@(#08C,PC),R1	;
 007AC4 2100     	MOV.B   	R0,@R1		;*(u8*)0x00F000788 = 0x00;
 007AC6 E501     	MOV     	#01,R5		;return task7_init_common(1);
@@ -15900,12 +15915,12 @@ L007ADE:
 007AF6 8800     	CMP/EQ  	#00,R0		;
 007AF8 8902     	BT      	L007B00		;
 007AFA 200A     	XOR     	R0,R0			;
-007AFC D115     	MOV.L   	@(#054,PC),R1	;if (*(u8*)0x0907ADCB != 0)
-007AFE 2100     	MOV.B   	R0,@R1		;  *(u8*)0x0F0007B0 = 0x00;
+007AFC D115     	MOV.L   	@(#054,PC),R1	;if (task7_state != 0)
+007AFE 2100     	MOV.B   	R0,@R1		;  auth_device_flag = 0x00;
 L007B00:
 007B00 200A     	XOR     	R0,R0			;
 007B02 D115     	MOV.L   	@(#054,PC),R1	;
-007B04 2100     	MOV.B   	R0,@R1		;*(u8*)0x0907ADCB = 0x00;
+007B04 2100     	MOV.B   	R0,@R1		;task7_state = 0x00;
 007B06 6053     	MOV     	R5,R0			;
 007B08 8800     	CMP/EQ  	#00,R0		;
 007B0A 8903     	BT      	L007B14		;if (efls_set) {
@@ -15939,7 +15954,7 @@ L007B14:							;}
 007B68 0C00
 007B6A 0200
 
-L007B6C:							;
+L007B6C:							;task7_func_810000:
 007B6C 211A     	XOR     	R1,R1			;
 007B6E D037     	MOV.L   	@(#0DC,PC),R0	;
 007B70 2012     	MOV.L   	R1,@R0		;
@@ -15981,7 +15996,7 @@ L007B6C:							;
 007BB8 600C     	EXTU.B   	R0,R0			;
 007BBA 330C     	ADD     	R0,R3			;
 007BBC D48E     	MOV.L   	@(#238,PC),R4	;
-007BBE 2432     	MOV.L   	R3,@R4		;
+007BBE 2432     	MOV.L   	R3,@R4		;*(u32*)0x0F000760 = + 150;
 007BC0 7108     	ADD     	#08,R1		;
 007BC2 6211     	MOV.W   	@R1,R2		;
 007BC4 4228     	SHLL16  	R2			;
@@ -16020,42 +16035,42 @@ L007B6C:							;
 
 L007C06:							;
 007C06 D07C     	MOV.L   	@(#1F0,PC),R0	;
-007C08 6102     	MOV.L   	@R0,R1		;
+007C08 6102     	MOV.L   	@R0,R1		;u32 temp = *(u32*)0x0F000760;
 007C0A 6313     	MOV     	R1,R3			;
 007C0C D00F     	MOV.L   	@(#03C,PC),R0	;
-007C0E 2012     	MOV.L   	R1,@R0		;
+007C0E 2012     	MOV.L   	R1,@R0		;FAD_02BC = temp;
 007C10 E102     	MOV     	#02,R1		;
 007C12 611C     	EXTU.B   	R1,R1			;
 007C14 D086     	MOV.L   	@(#218,PC),R0	;
-007C16 2010     	MOV.B   	R1,@R0		;
+007C16 2010     	MOV.B   	R1,@R0		;*(u8*)0x0F00076C = 0x02;
 007C18 D078     	MOV.L   	@(#1E0,PC),R0	;
 007C1A 6101     	MOV.W   	@R0,R1		;
 007C1C 611D     	EXTU.W   	R1,R1			;
 007C1E 222A     	XOR     	R2,R2			;
 007C20 D077     	MOV.L   	@(#1DC,PC),R0	;
-007C22 2021     	MOV.W   	R2,@R0		;
+007C22 2021     	MOV.W   	R2,@R0		;*(u16*)0x0F000768 = 0x0000;
 007C24 D07B     	MOV.L   	@(#1EC,PC),R0	;
-007C26 2012     	MOV.L   	R1,@R0		;
+007C26 2012     	MOV.L   	R1,@R0		;*(u32*)0x0F00074C = *(u16*)0x0F000766;
 007C28 D076     	MOV.L   	@(#1D8,PC),R0	;
-007C2A 2020     	MOV.B   	R2,@R0		;
+007C2A 2020     	MOV.B   	R2,@R0		;*(u8*)0x0F00076D = 0x00;
 007C2C D106     	MOV.L   	@(#018,PC),R1	;
 007C2E E040     	MOV     	#40,R0		;
 007C30 600C     	EXTU.B   	R0,R0			;
-007C32 2100     	MOV.B   	R0,@R1		;
+007C32 2100     	MOV.B   	R0,@R1		;*(u8*)0x0F000771 = 0x40;
 007C34 D07D     	MOV.L   	@(#1F4,PC),R0	;
 007C36 E202     	MOV     	#02,R2		;
 007C38 4218     	SHLL8   	R2			;
-007C3A 2022     	MOV.L   	R2,@R0		;
+007C3A 2022     	MOV.L   	R2,@R0		;*(u16*)0x0F000758 = 0x0200;
 007C3C D2AD     	MOV.L   	@(#2B4,PC),R2	;
 007C3E E001     	MOV     	#01,R0		;
 007C40 600C     	EXTU.B   	R0,R0			;
-007C42 2200     	MOV.B   	R0,@R2		;
-007C44 A38D     	BRA     	#071A			;
+007C42 2200     	MOV.B   	R0,@R2		;*(u8*)0x0F00076B = 0x01;
+007C44 A38D     	BRA     	L008362		;goto L008362;
 007C46 0009     	NOP     				;
-007C48 0F00
-007C4A 0771
-007C4C 0F00
-007C4E 02BC
+007C48 0F000771
+007C4C 0F0002BC
+
+
 007C50 D06B     	MOV.L   	@(#1AC,PC),R0	;
 007C52 6201     	MOV.W   	@R0,R2		;
 007C54 622D     	EXTU.W   	R2,R2			;
@@ -16268,21 +16283,16 @@ L007C06:							;
 007DF2 0009     	NOP     				;
 007DF4 0000
 007DF6 7C50
-007DF8 0F00
-007DFA 0760
-007DFC 0F00
-007DFE 0766
-007E00 0F00
-007E02 0768
-007E04 0F00
-007E06 076D
+007DF8 0F000760
+007DFC 0F000766
+007E00 0F000768
+007E04 0F00076D
 007E08 0F00
 007E0A 0764
 007E0C 0F00075C
 007E10 0B07
 007E12 0000
-007E14 0F00
-007E16 074C
+007E14 0F00074C
 007E18 09074210
 007E1C 0F00
 007E1E 0772
@@ -16293,8 +16303,7 @@ L007C06:							;
 007E28 0F00
 007E2A 0600
 007E2C 0F000758
-007E30 0F00
-007E32 076C     	MOV.B   	@(R0,R6),R7		;
+007E30 0F00076C
 007E34 07FF     	MAC.L   	@R15+,@R7+		;
 007E36 D213     	MOV.L   	@(#04C,PC),R2	;
 007E38 5021     	MOV.L   	@(#04,R2),R0	;
@@ -16338,7 +16347,7 @@ L007C06:							;
 007E84 0F00
 007E86 0744
 
-L007E88:							;
+L007E88:							;task7_func_810001:
 007E88 D1E3     	MOV.L   	@(#38C,PC),R1	;
 007E8A 6012     	MOV.L   	@R1,R0		;
 007E8C 8800     	CMP/EQ  	#00,R0		;
@@ -16393,8 +16402,7 @@ L007E88:							;
 007EEE 0009     	NOP     				;
 007EF0 0000
 007EF2 7EFE
-007EF4 0F00
-007EF6 076B
+007EF4 0F00076B
 007EF8 0A00
 007EFA 001E
 007EFC 0200
@@ -16408,7 +16416,7 @@ L007E88:							;
 007F0C 0607
 007F0E 0000
 
-L007F10:							;
+L007F10:							;task7_func_810004:
 007F10 DB19     	MOV.L   	@(#064,PC),R11	;
 007F12 C32A     	TRAPA   	#2A			;
 007F14 D00A     	MOV.L   	@(#028,PC),R0	;
@@ -16436,7 +16444,7 @@ L007F10:							;
 007F40 0F00
 007F42 076E
 
-L007F44:							;
+L007F44:							;task7_func_810005:
 007F44 DB0C     	MOV.L   	@(#030,PC),R11	;
 007F46 C32A     	TRAPA   	#2A			;
 007F48 D17F     	MOV.L   	@(#1FC,PC),R1	;
@@ -16472,7 +16480,7 @@ L007F44:							;
 007F84 0000
 007F86 23BA
 
-L007F88:							;
+L007F88:							;task7_func_810002:
 007F88 4F22     	STS.L   	PR,@-R15		;
 007F8A BF54     	BRS     	#1EA8			;
 007F8C 0009     	NOP     				;
@@ -16810,7 +16818,7 @@ L007F88:							;
 008224 0000
 008226 51BE
 
-L008228:							;
+L008228:							;task7_func_810006:
 008228 D089     	MOV.L   	@(#224,PC),R0	;
 00822A 6200     	MOV.B   	@R0,R2		;
 00822C 622C     	EXTU.B   	R2,R2			;
@@ -16970,6 +16978,8 @@ L0082BE:							;
 00835C 0A00 
 00835E 001E
 008360 0200
+
+L008362:							;
 008362 4F22     	STS.L   	PR,@-R15		;
 008364 DB45     	MOV.L   	@(#114,PC),R11	;
 008366 C32A     	TRAPA   	#2A			;
@@ -17210,27 +17220,27 @@ L008510:							;task7_func_81_0008:
 008534 600C     	EXTU.B   	R0,R0			;
 008536 8800     	CMP/EQ  	#00,R0		;
 008538 8B02     	BF      	L008540		;
-00853A E000     	MOV     	#00,R0		;
-00853C A348     	BRA     	L008BD0		;if (cd_status == 0x00) L008BD0(0x00);
+00853A E000     	MOV     	#00,R0		;if (cd_status == 0x00)
+00853C A348     	BRA     	L008BD0		;  goto L008BD0(0x00);
 00853E 0009     	NOP     				;
 L008540:
 008540 8806     	CMP/EQ  	#06,R0		;
 008542 8B02     	BF      	#004			;
-008544 E000     	MOV     	#00,R0		;
-008546 A343     	BRA     	L008BD0		;else if (cd_status == 0x06) L008BD0(0x00);
+008544 E000     	MOV     	#00,R0		;else if (cd_status == 0x06)
+008546 A343     	BRA     	L008BD0		;  goto L008BD0(0x00);
 008548 0009     	NOP     				;
 00854A 8807     	CMP/EQ  	#07,R0		;
 00854C 8B02     	BF      	#004			;
-00854E E000     	MOV     	#00,R0		;
-008550 A33E     	BRA     	L008BD0		;else if (cd_status == 0x07) L008BD0(0x00);
+00854E E000     	MOV     	#00,R0		;else if (cd_status == 0x07)
+008550 A33E     	BRA     	L008BD0		;  goto L008BD0(0x00);
 008552 0009     	NOP     				;
 008554 D157     	MOV.L   	@(#15C,PC),R1	;
 008556 6010     	MOV.B   	@R1,R0		;
 008558 600C     	EXTU.B   	R0,R0			;
 00855A 8800     	CMP/EQ  	#00,R0		;
 00855C 8902     	BT      	#004			;
-00855E E000     	MOV     	#00,R0		;
-008560 A336     	BRA     	L008BD0		;if (*(u8*)0x0F00034B != 0) L008BD0(0x00);
+00855E E000     	MOV     	#00,R0		;if (*(u8*)0x0F00034B != 0)
+008560 A336     	BRA     	L008BD0		;  goto L008BD0(0x00);
 008562 0009     	NOP     				;
 008564 200A     	XOR     	R0,R0			;
 008566 D14F     	MOV.L   	@(#13C,PC),R1	;
@@ -17256,9 +17266,9 @@ L008540:
 00858E D116     	MOV.L   	@(#058,PC),R1	;
 008590 E263     	MOV     	#63,R2		;
 008592 4208     	SHLL2   	R2			;
-008594 312C     	ADD     	R2,R1			;info_track_t first_track,last_track;
-008596 6216     	MOV.L   	@R1+,R2		;first_track.v = toc_dram_buf[100-1];
-008598 6012     	MOV.L   	@R1,R0		;last_track.v = toc_dram_buf[101-1];
+008594 312C     	ADD     	R2,R1			;  info_track_t first_track,last_track;
+008596 6216     	MOV.L   	@R1+,R2		;  first_track.v = toc_dram_buf[100-1];
+008598 6012     	MOV.L   	@R1,R0		;  last_track.v = toc_dram_buf[101-1];
 00859A 6229     	SWAP.W   	R2,R2			;
 00859C 622C     	EXTU.B   	R2,R2			;
 00859E 6009     	SWAP.W   	R0,R0			;
@@ -17268,8 +17278,8 @@ L008540:
 0085A6 881E     	CMP/EQ  	#1E,R0		;
 0085A8 8B02     	BF      	L0085B0		;
 0085AA D13C     	MOV.L   	@(#0F0,PC),R1	;
-0085AC E001     	MOV     	#01,R0		;if (last_track.num - first_track.num + 1 == 30)
-0085AE 2100     	MOV.B   	R0,@R1		;  *(u8*)0x0F00078A = 0x01;
+0085AC E001     	MOV     	#01,R0		;  if (last_track.num - first_track.num + 1 == 30)
+0085AE 2100     	MOV.B   	R0,@R1		;    *(u8*)0x0F00078A = 0x01;
 L0085B0:							;}
 0085B0 D10D     	MOV.L   	@(#034,PC),R1	;
 0085B2 6313     	MOV     	R1,R3			;
@@ -17287,8 +17297,8 @@ L0085B0:							;}
 0085CA 4019     	SHLR8   	R0			;
 0085CC C840     	TST     	#40,R0		;
 0085CE 8B0F     	BF      	L0085F0		;
-0085D0 E001     	MOV     	#01,R0		;
-0085D2 A2FD     	BRA     	L008BD0		;if (track.ctrl_adr & 0x40 == 0) L008BD0(0x01);
+0085D0 E001     	MOV     	#01,R0		;if (track.ctrl_adr & 0x40 == 0)
+0085D2 A2FD     	BRA     	L008BD0		;  goto L008BD0(0x01);
 0085D4 0009     	NOP     				;
 0085D6 0009     	NOP     				;
 0085D8 0907ADD0
@@ -17307,7 +17317,7 @@ L0085F0:
 0085FC 8414     	MOV.B   	@(#04,R1),R0	;
 0085FE 600C     	EXTU.B   	R0,R0			;
 008600 D1FB     	MOV.L   	@(#3EC,PC),R1	;
-008602 2100     	MOV.B   	R0,@R1		;curr_buf_num = *(u8*)(0x0907ADB0+0x04);
+008602 2100     	MOV.B   	R0,@R1		;curr_buf_num = (u8)(auth_device_cmd[2] >> 8);//Authenticate Device(0xE0) high byte CR3
 008604 4F22     	STS.L   	PR,@-R15		;
 008606 DBF8     	MOV.L   	@(#3E0,PC),R11	;
 008608 C32A     	TRAPA   	#42			;TRAP_42(0x0B070000);
@@ -17376,7 +17386,7 @@ L008678:							;}
 008682 D1E1     	MOV.L   	@(#384,PC),R1	;
 008684 E003     	MOV     	#03,R0		;
 008686 600C     	EXTU.B   	R0,R0			;
-008688 2100     	MOV.B   	R0,@R1		;*(u8*)0x0907ADCB = 0x03;
+008688 2100     	MOV.B   	R0,@R1		;task7_state = 0x03;
 00868A A34B     	BRA     	L008D24		;goto L008D24;
 00868C 0009     	NOP     				;
 00868E 0009     	NOP     				;
@@ -17498,7 +17508,7 @@ L008786:
 008786 D1A0     	MOV.L   	@(#280,PC),R1	;
 008788 E004     	MOV     	#04,R0		;
 00878A 600C     	EXTU.B   	R0,R0			;
-00878C 2100     	MOV.B   	R0,@R1		;*(u8*)0x0907ADCB = 0x04;
+00878C 2100     	MOV.B   	R0,@R1		;task7_state = 0x04;
 00878E 6166     	MOV.L   	@R6+,R1		;
 008790 6266     	MOV.L   	@R6+,R2		;
 008792 D02C     	MOV.L   	@(#0B0,PC),R0	;
@@ -17567,7 +17577,7 @@ L0087FA:
 00880E 8B04     	BF      	L00881A		;  if (*(u8*)0x0F0002F8 == 0x01) {
 008810 E004     	MOV     	#04,R0		;
 008812 D110     	MOV.L   	@(#040,PC),R1	;
-008814 8011     	MOV.B   	R0,@(#01,R1)	;    *(u8*)(0x0F000786+0x01) = 0x04;
+008814 8011     	MOV.B   	R0,@(#01,R1)	;    auth_status_cd = AUTH_STAT_SATURN_DISK;
 008816 A00D     	BRA     	L008834		;    goto L008834;
 008818 0009     	NOP     				;  }
 L00881A:
@@ -17608,7 +17618,7 @@ L008874:							;
 008874 D164     	MOV.L   	@(#190,PC),R1	;
 008876 E005     	MOV     	#05,R0		;
 008878 600C     	EXTU.B   	R0,R0			;
-00887A 2100     	MOV.B   	R0,@R1		;*(u8*)0x0907ADCB = 0x05;
+00887A 2100     	MOV.B   	R0,@R1		;task7_state = 0x05;
 00887C D268     	MOV.L   	@(#1A0,PC),R2	;
 00887E D377     	MOV.L   	@(#1DC,PC),R3	;
 008880 6131     	MOV.W   	@R3,R1		;
@@ -18028,7 +18038,7 @@ L008A94:
 
 L008BD0:							;(u8 arg1)//arg1-R0
 008BD0 D138     	MOV.L   	@(#0E0,PC),R1	;
-008BD2 8011     	MOV.B   	R0,@(#01,R1)	;*(u8*)0x0F000786 = arg1;
+008BD2 8011     	MOV.B   	R0,@(#01,R1)	;auth_status_cd = (u16)arg1;
 L008BD4:							;
 008BD4 E000     	MOV     	#00,R0		;
 008BD6 DB2B     	MOV.L   	@(#0AC,PC),R11	;
@@ -18038,7 +18048,7 @@ L008BD4:							;
 008BDE 6010     	MOV.B   	@R1,R0		;
 008BE0 600C     	EXTU.B   	R0,R0			;
 008BE2 8802     	CMP/EQ  	#02,R0		;
-008BE4 892B     	BT      	L008C3E		;if (*(u8*)0x0907ADCB != 0x02) {
+008BE4 892B     	BT      	L008C3E		;if (task7_state != 0x02) {
 008BE6 4F22     	STS.L   	PR,@-R15		;
 008BE8 DB95     	MOV.L   	@(#254,PC),R11	;
 008BEA C32A     	TRAPA   	#42			;  TRAP_42(0x0B070000);
@@ -18103,23 +18113,23 @@ L008C3E:
 008C5C 8411     	MOV.B   	@(#01,R1),R0	;
 008C5E 600C     	EXTU.B   	R0,R0			;
 008C60 8811     	CMP/EQ  	#11,R0		;
-008C62 8B02     	BF      	L008C6A		;if (*(u8*)0x0F000786 == 0x11) {
+008C62 8B02     	BF      	L008C6A		;if (auth_status_cd == 0x0011) {	//????
 008C64 D014     	MOV.L   	@(#050,PC),R0	;  task7_reinit();
-008C66 402B     	JMP     	@R0			;  goto goto task7_thread_loop;
+008C66 402B     	JMP     	@R0			;  goto task7_thread_loop;
 008C68 0009     	NOP     				;}
 L008C6A:
 008C6A D172     	MOV.L   	@(#1C8,PC),R1	;
 008C6C E000     	MOV     	#00,R0		;
-008C6E 2100     	MOV.B   	R0,@R1		;*(u8*)0x0907ADCB = 0x00;
+008C6E 2100     	MOV.B   	R0,@R1		;task7_state = 0x00;
 008C70 D105     	MOV.L   	@(#014,PC),R1	;
 008C72 200A     	XOR     	R0,R0			;
-008C74 2100     	MOV.B   	R0,@R1		;*(u8*)0x0F0007B0 = 0x00;
+008C74 2100     	MOV.B   	R0,@R1		;auth_device_flag = 0x00;
 008C76 9042     	MOV.W   	@(#084,PC),R0	;
 008C78 600D     	EXTU.W   	R0,R0			;
 008C7A D304     	MOV.L   	@(#010,PC),R3	;
 008C7C 2301     	MOV.W   	R0,@R3		;YGR.HIRQ = HIRQ_EFLS;
 008C7E D01C     	MOV.L   	@(#070,PC),R0	;
-008C80 402B     	JMP     	@R0			;goto goto task7_thread_loop;
+008C80 402B     	JMP     	@R0			;goto task7_thread_loop;
 008C82 0009     	NOP     				;
 008C84 07070000
 008C88 0F0007B0
@@ -18211,13 +18221,13 @@ L008D24:
 008D48 8803     	CMP/EQ  	#03,R0		;
 008D4A 8B04     	BF      	L008D56		;
 008D4C D241     	MOV.L   	@(#104,PC),R2	;
-008D4E 6020     	MOV.B   	@R2,R0		;if (*(u8*)0x0907ADCB == 0x03) 
+008D4E 6020     	MOV.B   	@R2,R0		;if (task7_state == 0x03) 
 008D50 600C     	EXTU.B   	R0,R0			;  fd->range = (u32)*(u8*)0x0907ADCE;
 008D52 A008     	BRA     	L008D66		;
 008D54 0009     	NOP     				;
 L008D56:
 008D56 8806     	CMP/EQ  	#06,R0		;
-008D58 8B02     	BF      	L008D60		;else if (*(u8*)0x0907ADCB == 0x06)
+008D58 8B02     	BF      	L008D60		;else if (task7_state == 0x06)
 008D5A E003     	MOV     	#03,R0		;  fd->range = 0x00000003;
 008D5C A003     	BRA     	L008D66		;
 008D5E 0009     	NOP     				;
@@ -18759,11 +18769,11 @@ L008F1C:							;
 0091A0 0F00
 0091A2 02A7
 
-L0091A4:							;get_rr1_trns_status(u16* rr1)	//rr1-R12
+L0091A4:							;void get_rr1_trns_status(u16* rr1)	//rr1-R12
 0091A4 A001     	BRA     	L0091AA		;
 0091A6 E240     	MOV     	#40,R2		;return get_rr1_status_ext(0x40,rr1);
 
-L0091A8:							;get_rr1_status(u16* rr1)	//rr1-R12
+L0091A8:							;void get_rr1_status(u16* rr1)	//rr1-R12
 0091A8 E200     	MOV     	#00,R2		;return get_rr1_status_ext(0x00,rr1);
 
 L0091AA:							;get_rr1_status_ext(u8 stat,u16* rr1)	//stat-R2,rr1-R12
@@ -18827,24 +18837,24 @@ L009200:							;void make_cd_status_ext(u8 stat,u16 *rr1,*rr2,*rr3,*rr4) //stat-
 009200 D018     	MOV.L   	@(#060,PC),R0	;
 009202 6000     	MOV.B   	@R0,R0		;
 009204 C801     	TST     	#01,R0		;
-009206 8B29     	BF      	L00925C		;*(u8*)0x0F0007B0 & 0x01 != 0
-009208 D195     	MOV.L   	@(#254,PC),R1	;
-00920A 6010     	MOV.B   	@R1,R0		;
-00920C D195     	MOV.L   	@(#254,PC),R1	;
-00920E 8800     	CMP/EQ  	#00,R0		;
-009210 8900     	BT      	L009214		;u8* ptr = *(u8*)0x0F00027C == 00 ? cd_status_buf2 : 
+009206 8B29     	BF      	L00925C		;if (auth_device_flag & 0x01 != 0) {
+009208 D195     	MOV.L   	@(#254,PC),R1	;  *rr1 = 0x00FF; *rr2 = 0xFFFF;
+00920A 6010     	MOV.B   	@R1,R0		;  *rr3 = 0xFFFF; *rr4 = 0xFFFF;
+00920C D195     	MOV.L   	@(#254,PC),R1	;}
+00920E 8800     	CMP/EQ  	#00,R0		;else {
+009210 8900     	BT      	L009214		;  u8* ptr = *(u8*)0x0F00027C == 00 ? cd_status_buf2 : 
 009212 D195     	MOV.L   	@(#254,PC),R1	;                                   cd_status_buf;
 L009214:
-009214 6C16     	MOV.L   	@R1+,R12		;*rr1 = ((u16*)ptr)[0]; *rr2 = ((u16*)ptr)[1];
-009216 6D12     	MOV.L   	@R1,R13		;*rr3 = ((u16*)ptr)[2]; *rr4 = ((u16*)ptr)[3];
+009214 6C16     	MOV.L   	@R1+,R12		;  *rr1 = ((u16*)ptr)[0]; *rr2 = ((u16*)ptr)[1];
+009216 6D12     	MOV.L   	@R1,R13		;  *rr3 = ((u16*)ptr)[2]; *rr4 = ((u16*)ptr)[3];
 009218 D090     	MOV.L   	@(#240,PC),R0	;
 00921A 401E     	LDC     	R0,GBR		;
 00921C E04B     	MOV     	#4B,R0		;
 00921E CC40     	TST.B   	#40,@(R0,GBR)	;
-009220 8B02     	BF      	L009228		;cd_flags2 & 0x40 != 0
+009220 8B02     	BF      	L009228		;  cd_flags2 & 0x40 != 0
 009222 C449     	MOV.B   	@(#049,GBR),R0	;
 009224 880A     	CMP/EQ  	#0A,R0		;
-009226 8B07     	BF      	L009238		;cd_state != 0x0A
+009226 8B07     	BF      	L009238		;  cd_state != 0x0A
 L009228:
 009228 C614     	MOV.L   	@(#050,GBR),R0	;
 00922A 4D29     	SHLR16  	R13			;
@@ -18852,32 +18862,32 @@ L009228:
 00922E 4D19     	SHLR8   	R13			;
 009230 4019     	SHLR8   	R0			;
 009232 4D18     	SHLL8   	R13			;
-009234 4D28     	SHLL16  	R13			;*rr3 = (*rr3 & 0xFF00) | ((FAD>>16) & 0x00FF);
-009236 2D0B     	OR      	R0,R13		;*rr4 = FAD & 0xFFFF;
+009234 4D28     	SHLL16  	R13			;  *rr3 = (*rr3 & 0xFF00) | ((FAD>>16) & 0x00FF);
+009236 2D0B     	OR      	R0,R13		;  *rr4 = FAD & 0xFFFF;
 L009238:
 009238 E04A     	MOV     	#4A,R0		;
 00923A CC28     	TST.B   	#28,@(R0,GBR)	;
-00923C 8902     	BT      	L009244		;cd_flags & 0x28 == 0x00
-00923E 4C18     	SHLL8   	R12			;*rr1 &= 0x00FF;
+00923C 8902     	BT      	L009244		;  cd_flags & 0x28 == 0x00
+00923E 4C18     	SHLL8   	R12			;  *rr1 &= 0x00FF;
 009240 A008     	BRA     	L009254		;
 009242 4C19     	SHLR8   	R12			;
 L009244:
 009244 E04B     	MOV     	#4B,R0		;
 009246 CC08     	TST.B   	#08,@(R0,GBR)	;
-009248 8904     	BT      	L009254		;if (cd_flags2 & 0x08 != 0x00) {
+009248 8904     	BT      	L009254		;  if (cd_flags2 & 0x08 != 0x00) {
 00924A D007     	MOV.L   	@(#01C,PC),R0	;
-00924C 2C09     	AND     	R0,R12		;  *rr1 &= 0xF000; *rr2 &= 0x0000;
+00924C 2C09     	AND     	R0,R12		;    *rr1 &= 0xF000; *rr2 &= 0x0000;
 00924E D008     	MOV.L   	@(#020,PC),R0	;
-009250 2C0B     	OR      	R0,R12		;  *rr1 |= 0x09FF; *rr2 |= 0xFFFF;
-009252 EDFF     	MOV     	#FF,R13		;  *rr3 = 0xFFFF; *rr4 = 0xFFFF;
-L009254:							;}
-009254 4211     	CMP/PZ  	R2			;
+009250 2C0B     	OR      	R0,R12		;    *rr1 |= 0x09FF; *rr2 |= 0xFFFF;
+009252 EDFF     	MOV     	#FF,R13		;    *rr3 = 0xFFFF; *rr4 = 0xFFFF;
+L009254:							;  }
+009254 4211     	CMP/PZ  	R2			;}
 009256 8BA8     	BF      	L0091AA		;if (stat & 0x80 == 0x80) return get_rr1_status_ext(stat,rr1);
 009258 000B     	RTS     				;
 00925A 0009     	NOP     				;
 L00925C:
 00925C DC03     	MOV.L   	@(#00C,PC),R12	;
-00925E AFF9     	BRA     	L009254		;*rr3 = 0xFFFF; *rr4 = 0xFFFF;
+00925E AFF9     	BRA     	L009254		;
 009260 EDFF     	MOV     	#FF,R13		;
 009262 0009     	NOP     				;
 009264 0F0007B0
@@ -21214,12 +21224,11 @@ L00A3EA:
 00A43A D207     	MOV.L   	@(#01C,PC),R2	;
 00A43C D503     	MOV.L   	@(#00C,PC),R5	;
 00A43E 900D     	MOV.W   	@(#01A,PC),R0	;
-00A440 2501     	MOV.W   	R0,@R5		;
+00A440 2501     	MOV.W   	R0,@R5		;*(u16*)0x0F000892 = 0x0800;
 00A442 422B     	JMP     	@R2			;
 00A444 0009     	NOP     				;
 00A446 0009     	NOP     				;
-00A448 0F00
-00A44A 0892
+00A448 0F000892
 00A44C 0A00
 00A44E 001E
 00A450 0000
@@ -24034,11 +24043,11 @@ mpega_int:							;ITU2 IMIA2 handler
 L00BA34:							;init()
 00BA34 200A     	XOR     	R0,R0			;
 00BA36 D186     	MOV.L   	@(#218,PC),R1	;
-00BA38 2101     	MOV.W   	R0,@R1		;*(u16*)0x0F000786 = 0x0000;
+00BA38 2101     	MOV.W   	R0,@R1		;auth_status_cd = AUTH_STAT_NO_CD;
 00BA3A D186     	MOV.L   	@(#218,PC),R1	;
-00BA3C 2102     	MOV.L   	R0,@R1		;*(u16*)0x0F0007AC = 0x0000;
+00BA3C 2102     	MOV.L   	R0,@R1		;auth_status2_mpeg = 0x0000;
 00BA3E 7104     	ADD     	#04,R1		;
-00BA40 2101     	MOV.W   	R0,@R1		;*(u16*)0x0F0007B0 = 0x0000;
+00BA40 2101     	MOV.W   	R0,@R1		;auth_device_flag = 0x00;//*(u16*)0x0F0007B0 = 0x0000;
 00BA42 000B     	RTS     				;
 00BA44 0009     	NOP     				;
 
@@ -25122,73 +25131,74 @@ L00BA46:							;task9_thread()
 00C2B4 0930
 
 ;cdb command E0 "Authenticate Device"
-L00C2B6:							;cmd_authenticate_device(arg1)//arg1-R1
+L00C2B6:							;cmd_authenticate_device(u16 cr1,cr2,cr3,cr4,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) {
 00C2B6 D057     	MOV.L   	@(#15C,PC),R0	;
-00C2B8 6300     	MOV.B   	@R0,R3		;
+00C2B8 6300     	MOV.B   	@R0,R3		;*h = 0;
 00C2BA 4305     	ROTR    	R3			;
-00C2BC 8933     	BT      	L00C326		;*(u8*)0x0F0007B0.b & 0x01 != 0
-00C2BE D358     	MOV.L   	@(#160,PC),R3	;
+00C2BC 8933     	BT      	L00C326		;if (auth_device_flag)
+00C2BE D358     	MOV.L   	@(#160,PC),R3	;  return make_cd_status_FF(rr1,rr2,rr3,rr4);
 00C2C0 6030     	MOV.B   	@R3,R0		;
-00C2C2 C880     	TST     	#80,R0		;
-00C2C4 8B2F     	BF      	L00C326		;*(u8*)0x0F000892 & 0x80 != 0
+00C2C2 C880     	TST     	#80,R0		;if (*(u8*)0x0F000892 & 0x80 != 0)
+00C2C4 8B2F     	BF      	L00C326		;  return make_cd_status_FF(rr1,rr2,rr3,rr4);
 00C2C6 601C     	EXTU.B   	R1,R0			;
 00C2C8 8800     	CMP/EQ  	#00,R0		;
-00C2CA 8903     	BT      	L00C2D4		;arg1 == 0x00
+00C2CA 8903     	BT      	L00C2D4		;
 00C2CC 8801     	CMP/EQ  	#01,R0		;
-00C2CE 8912     	BT      	L00C2F6		;arg1 == 0x01
+00C2CE 8912     	BT      	L00C2F6		;
 00C2D0 A029     	BRA     	L00C326		;
 00C2D2 0009     	NOP     				;
-L00C2D4:
-00C2D4 D04D     	MOV.L   	@(#134,PC),R0	;
-00C2D6 2012     	MOV.L   	R1,@R0		;
-00C2D8 1021     	MOV.L   	R2,@(#4,R0)		;
+L00C2D4:							;switch (cr2) {
+00C2D4 D04D     	MOV.L   	@(#134,PC),R0	;case 0x0000:
+00C2D6 2012     	MOV.L   	R1,@R0		;  auth_device_cmd[0] = cr1; auth_device_cmd[0] = cr2;
+00C2D8 1021     	MOV.L   	R2,@(#4,R0)		;  auth_device_cmd[2] = cr3; auth_device_cmd[3] = cr4;
 00C2DA 4229     	SHLR16  	R2			;
 00C2DC 4219     	SHLR8   	R2			;
 00C2DE E317     	MOV     	#17,R3		;
 00C2E0 633C     	EXTU.B   	R3,R3			;
-00C2E2 3236     	CMP/HI 	R3,R2			;
-00C2E4 891F     	BT      	#03E			;
+00C2E2 3236     	CMP/HI 	R3,R2			;  if () 
+00C2E4 891F     	BT      	L00C326		;    return make_cd_status_FF(rr1,rr2,rr3,rr4);
 00C2E6 D34A     	MOV.L   	@(#128,PC),R3	;
 00C2E8 E002     	MOV     	#02,R0		;
-00C2EA 2300     	MOV.B   	R0,@R3		;
+00C2EA 2300     	MOV.B   	R0,@R3		;  task7_state = 0x02;
 00C2EC DB50     	MOV.L   	@(#140,PC),R11	;
 00C2EE D045     	MOV.L   	@(#114,PC),R0	;
-00C2F0 20B2     	MOV.L   	R11,@R0		;
-00C2F2 A00C     	BRA     	#0018			;
+00C2F0 20B2     	MOV.L   	R11,@R0		;  *(u32*)0x09075384 = 0x07810008;
+00C2F2 A00C     	BRA     	L00C30E		;  break;
 00C2F4 0009     	NOP     				;
 L00C2F6:
-00C2F6 D342     	MOV.L   	@(#108,PC),R3	;
+00C2F6 D342     	MOV.L   	@(#108,PC),R3	;case 0x0001:
 00C2F8 6030     	MOV.B   	@R3,R0		;
 00C2FA C802     	TST     	#02,R0		;
-00C2FC 8913     	BT      	L00C326		;hw_flags & 0x02 == 0
-00C2FE E101     	MOV     	#01,R1		;
+00C2FC 8913     	BT      	L00C326		;  if (hw_flags & 0x02 == 0)
+00C2FE E101     	MOV     	#01,R1		;    return make_cd_status_FF(rr1,rr2,rr3,rr4);
 00C300 D348     	MOV.L   	@(#120,PC),R3	;
-00C302 2310     	MOV.B   	R1,@R3		;*(u8*)0x0907538A = 0x01;
+00C302 2310     	MOV.B   	R1,@R3		;  *(u8*)0x0907538A = 0x01;
 00C304 DB4B     	MOV.L   	@(#12C,PC),R11	;
-00C306 D03F     	MOV.L   	@(#0FC,PC),R0	;
-00C308 20B2     	MOV.L   	R11,@R0		;*(u32*)0x09075384 = 0x09810002;
-00C30A A000     	BRA     	#0000			;
-00C30C 0009     	NOP     				;
+00C306 D03F     	MOV.L   	@(#0FC,PC),R0	;  *(u32*)0x09075384 = 0x09810002;
+00C308 20B2     	MOV.L   	R11,@R0		;  break;
+00C30A A000     	BRA     	#0000			;default:
+00C30C 0009     	NOP     				;  return make_cd_status_FF(rr1,rr2,rr3,rr4);
+L00C30E:							;}
 00C30E D03A     	MOV.L   	@(#0E8,PC),R0	;
 00C310 4F22     	STS.L   	PR,@-R15		;
 00C312 400B     	JSR     	@R0			;make_cd_status_00(rr1,rr2,rr3,rr4);
 00C314 0009     	NOP     				;
 00C316 4F26     	LDS.L   	@R15+,PR		;
 00C318 D03A     	MOV.L   	@(#0E8,PC),R0	;
-00C31A 6B02     	MOV.L   	@R0,R11		;
+00C31A 6B02     	MOV.L   	@R0,R11		;*h = *(u32*)0x09075384;
 00C31C D13D     	MOV.L   	@(#0F4,PC),R1	;
 00C31E E001     	MOV     	#01,R0		;
-00C320 2100     	MOV.B   	R0,@R1		;
+00C320 2100     	MOV.B   	R0,@R1		;auth_device_flag = 0x01;
 00C322 000B     	RTS     				;
 00C324 0009     	NOP     				;
 L00C326:
 00C326 D035     	MOV.L   	@(#0D4,PC),R0	;
 00C328 4F22     	STS.L   	PR,@-R15		;
-00C32A 400B     	JSR     	@R0			;make_cd_status_FF(rr1,rr2,rr3,rr4);
+00C32A 400B     	JSR     	@R0			;
 00C32C 0009     	NOP     				;
 00C32E 4F26     	LDS.L   	@R15+,PR		;
 00C330 000B     	RTS     				;
-00C332 2BBA     	XOR     	R11,R11		;
+00C332 2BBA     	XOR     	R11,R11		;}
 
 L00C334:							;cdb command E2 "Get MPEG ROM"
 00C334 D037     	MOV.L   	@(#0DC,PC),R0	;
@@ -25243,76 +25253,74 @@ L00C334:							;cdb command E2 "Get MPEG ROM"
 00C396 AFC6     	BRA     	#1F8C			;
 00C398 0009     	NOP     				;
 
-L00C39A:							;cdb command E1 "Is Device Authenticated"
+;cdb command E1 "Is Device Authenticated"
+L00C39A:							;void cmd_is_device_authenticated(u16 cr1,cr2,cr3,cr4,u32 *h,u16 *rr1,*rr2,*rr3,*rr4) {
 00C39A D01E     	MOV.L   	@(#078,PC),R0	;
 00C39C 6300     	MOV.B   	@R0,R3		;
-00C39E 4305     	ROTR    	R3			;
-00C3A0 8926     	BT      	L00C3F0		;*(u8*)0x0F0007B0 & 0x01 != 0
+00C39E 4305     	ROTR    	R3			;if (auth_device_flag)
+00C3A0 8926     	BT      	L00C3F0		;  return make_cd_status_FF(rr1,rr2,rr3,rr4);
 00C3A2 601C     	EXTU.B   	R1,R0			;
 00C3A4 8800     	CMP/EQ  	#00,R0		;
-00C3A6 8903     	BT      	#006			;
+00C3A6 8903     	BT      	L00C3B0		;
 00C3A8 8801     	CMP/EQ  	#01,R0		;
-00C3AA 8905     	BT      	#00A			;
-00C3AC A020     	BRA     	#0040			;
-00C3AE 0009     	NOP     				;
-00C3B0 D41D     	MOV.L   	@(#074,PC),R4	;
-00C3B2 6341     	MOV.W   	@R4,R3		;
-00C3B4 A00D     	BRA     	#001A			;
-00C3B6 4328     	SHLL16  	R3			;
-00C3B8 D319     	MOV.L   	@(#064,PC),R3	;
+00C3AA 8905     	BT      	L00C3B8		;
+00C3AC A020     	BRA     	L00C3F0		;
+00C3AE 0009     	NOP     				;u16 temp2,temp4;
+L00C3B0:							;switch (cr2) {
+00C3B0 D41D     	MOV.L   	@(#074,PC),R4	;case 0x0000:
+00C3B2 6341     	MOV.W   	@R4,R3		;  temp2 = auth_status_cd; temp4 = 0;
+00C3B4 A00D     	BRA     	L00C3D2		;
+00C3B6 4328     	SHLL16  	R3			;  break;
+L00C3B8:
+00C3B8 D319     	MOV.L   	@(#064,PC),R3	;case 0x0001:
 00C3BA 6030     	MOV.B   	@R3,R0		;
-00C3BC C880     	TST     	#80,R0		;
-00C3BE 8B17     	BF      	#02E			;
+00C3BC C880     	TST     	#80,R0		;  if (*(u8*)0x0F000892 & 0x80 != 0)
+00C3BE 8B17     	BF      	L00C3F0		;    return make_cd_status_FF(rr1,rr2,rr3,rr4);
 00C3C0 D416     	MOV.L   	@(#058,PC),R4	;
 00C3C2 6041     	MOV.W   	@R4,R0		;
-00C3C4 4028     	SHLL16  	R0			;
+00C3C4 4028     	SHLL16  	R0			;  temp2 = auth_status_mpeg;
 00C3C6 D419     	MOV.L   	@(#064,PC),R4	;
 00C3C8 6341     	MOV.W   	@R4,R3		;
-00C3CA 633D     	EXTU.W   	R3,R3			;
-00C3CC 203D     	XTRCT   	R3,R0			;
-00C3CE A000     	BRA     	#0000			;
-00C3D0 6303     	MOV     	R0,R3			;
+00C3CA 633D     	EXTU.W   	R3,R3			;  temp4 = auth_status2_mpeg;
+00C3CC 203D     	XTRCT   	R3,R0			;  break;
+00C3CE A000     	BRA     	#0000			;default:
+00C3D0 6303     	MOV     	R0,R3			;  return make_cd_status_FF(rr1,rr2,rr3,rr4);
+L00C3D2:							;}
 00C3D2 2F36     	MOV.L   	R3,@-R15		;
 00C3D4 D007     	MOV.L   	@(#01C,PC),R0	;
 00C3D6 4F22     	STS.L   	PR,@-R15		;
-00C3D8 400B     	JSR     	@R0			;
+00C3D8 400B     	JSR     	@R0			;get_rr1_status(rr1);//L000091A8
 00C3DA 0009     	NOP     				;
 00C3DC 4F26     	LDS.L   	@R15+,PR		;
 00C3DE 63F6     	MOV.L   	@R15+,R3		;
-00C3E0 6D3D     	EXTU.W   	R3,R13		;
-00C3E2 4C29     	SHLR16  	R12			;
+00C3E0 6D3D     	EXTU.W   	R3,R13		;*rr3 = 0x0000;
+00C3E2 4C29     	SHLR16  	R12			;*rr4 = temp4;
 00C3E4 4C19     	SHLR8   	R12			;
 00C3E6 4C18     	SHLL8   	R12			;
 00C3E8 23CD     	XTRCT   	R12,R3		;
-00C3EA 6C33     	MOV     	R3,R12		;
+00C3EA 6C33     	MOV     	R3,R12		;*rr2 = temp2;
 00C3EC 000B     	RTS     				;
-00C3EE 2BBA     	XOR     	R11,R11		;
+00C3EE 2BBA     	XOR     	R11,R11		;*h = 0;
 L00C3F0:
 00C3F0 AF99     	BRA     	L00C326		;
-00C3F2 0009     	NOP     				;
-00C3F4 0000
-00C3F6 91A8
+00C3F2 0009     	NOP     				;}
+00C3F4 000091A8
 00C3F8 000091FE
 00C3FC 000091E8
 00C400 0F00027D
 00C404 09075384
 00C408 0907
 00C40A 538C
-00C40C 0907
-00C40E ADB0
-00C410 0907
-00C412 ADCB
+00C40C 0907ADB0
+00C410 0907ADCB
 00C414 0F0007B0
 00C418 0F00
 00C41A 02FD
-00C41C 0F00
-00C41E 07AE
+00C41C 0F0007AE
 00C420 0F000892
 00C424 0907538A
-00C428 0F00
-00C42A 0786
-00C42C 0F00
-00C42E 07AC
+00C428 0F000786
+00C42C 0F0007AC
 00C430 0781
 00C432 0008
 00C434 09810002

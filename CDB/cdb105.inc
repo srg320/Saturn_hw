@@ -154,6 +154,13 @@ timer_high_cnt:					;0x0F00021C-0x0F00021F
 	CDD_COMM_READ		= 0x06
 	CDD_COMM_SEEK		= 0x09
 
+
+
+	.org 0F000250
+timer_high_cnt:					;0x0F00021C-0x0F00021F
+	dc.l 	0x00000000
+
+
 	.org 0F00025C
 init_cd_flags:					;0F00025C
 	dc.b 	0x00
@@ -220,6 +227,9 @@ cd_flags:						;0F0002A6 (0x0F00025C+0x4A)
 	dc.b 	0x00
 cd_flags2:						;0F0002A7 (0x0F00025C+0x4B)
 	dc.b 	0x00
+
+	CD_FLAG2_ERROR 		= 0x08
+
 
 	.org 0F0002AC
 FAD:							;0F0002AC-0F0002AF (0x0F00025C+0x50)
@@ -545,7 +555,26 @@ ip_maker_id:					;u8 ip_maker_id[8];//0x0F000774-0x0F00077B
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 ip_product_number:				;u8 ip_product_number[10];//0x0F00077C-0x0F000785
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+auth_status_cd:					;u16 auth_status_cd; //0x0F000786-0x0F000787
+	dc.w 	0x0000
 
+	AUTH_STAT_NO_CD 			= 0x0000
+	AUTH_STAT_AUDIO_CD 		= 0x0001
+	AUTH_STAT_DATA_CD 		= 0x0002
+	AUTH_STAT_NON_SATURN_DISK 	= 0x0003
+	AUTH_STAT_SATURN_DISK		= 0x0004
+
+	.org 0x0F0007AC
+auth_status2_mpeg:				;u16 auth_status2_mpeg; //0x0F0007AC-0x0F0007AD
+	dc.w 	0x0000
+auth_status_mpeg:					;u16 auth_status_mpeg; //0x0F0007AE-0x0F0007AF
+	dc.w 	0x0000
+
+	AUTH_STAT_NO_MPEG 		= 0x0000
+	AUTH_STAT_MPEG 			= 0x0002
+
+auth_device_flag:					;u8 auth_device_flag; //0x0F0007B0
+	dc.b 	0x00	
 
 	.org 0x0F0008F8
 temp_stack3_end:					;0x0F0008F8
@@ -638,7 +667,7 @@ leadout:
 							;union track_t {
 	v				= 0x00	;  u32 v;
 							;  struct{
-	ctrl_adr			= 0x00	;    u8 ctrl_adr;
+	ctrl_adr			= 0x00	;    u32:8 ctrl_adr;
 	fad				= 0x01	;    u32:24 fad;
 							;  };
 							;};
@@ -745,5 +774,16 @@ cddata_dram_buf:					;0x09000230
 	reserved3 		= 248			;    u8 reserved3[8];
 							;  };
 							;};
+
+
+
+
+	.org 0x0907ADB0
+auth_device_cmd:					;u16 auth_device_cmd[4]; //0x0907ADB0-0x0907ADB7
+	dc.w 	0x0000,0x0000,0x0000,0x0000
+
+	.org 0x0907ADCB
+task7_state:					;u8 task7_state; //0x0907ADCB
+	dc.b 	0x00
 
 
