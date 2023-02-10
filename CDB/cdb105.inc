@@ -1,10 +1,10 @@
 							;struct {
 	YGR_DATA		=	0x0A000000	;  u16 DATA;
 	YGR_TRCTL		=	0x0A000002	;  u16 TRCTL;
-	YGR_REG04		=	0x0A000004	;  u16 REG04;
-	YGR_CDIRQ		=	0x0A000006	;  u16 CDIRQ;
-	YGR_REG08		=	0x0A000008	;  u16 REG08;
-	YGR_CDMSK		=	0x0A00000A	;  u16 CDMSK;
+	YGR_CDIRQL		=	0x0A000004	;  u16 CDIRQL;
+	YGR_CDIRQU		=	0x0A000006	;  u16 CDIRQU;
+	YGR_CDMSKL		=	0x0A000008	;  u16 CDMSKL;
+	YGR_CDMSKU		=	0x0A00000A	;  u16 CDMSKU;
 	YGR_REG0C		=	0x0A00000C	;  u16 REG0C;
 	YGR_REG0E		=	0x0A00000E	;  u16 REG0E;
 	YGR_RR1		=	0x0A000010	;  u16 RR1;
@@ -146,6 +146,10 @@ task_queue_end:					;0F000208
 	.org 0x0F00021C
 timer_high_cnt:					;0x0F00021C-0x0F00021F
 	dc.l 	0x00000000
+
+	.org 0F000240
+delayed_handles:					;handle_t delayed_handles[2];//0x0F000240-0x0F000247
+	dc.l 	0x00000000,0x00000000
 
 
 	.org 0F000250
@@ -528,13 +532,21 @@ cdirq_flags:					;0x0F0006DE (0x0F0006DC+0x02)
 	dc.b 	0x00
 timer_deviation:					;0x0F0006DF (0x0F0006DC+0x03)
 	dc.b 	0x00
-
+cdirq1_cnt2:					;0x0F0006E0 (0x0F0006DC+0x04)
+	dc.b 	0x00
+cdirq1_cnt1:					;0x0F0006E1 (0x0F0006DC+0x05)
+	dc.b 	0x00
+cdirq1_div_cnt:					;0x0F0006E2 (0x0F0006DC+0x06)
+	dc.b 	0x00
 timer_fault_cnt:					;0x0F0006E3 (0x0F0006DC+0x07)
 	dc.b 	0x00
 timer_interval1:					;0x0F0006E4 (0x0F0006DC+0x08)
 	dc.l 	0x00000000
 timer_old:						;0x0F0006E8 (0x0F0006DC+0x0C)
 	dc.l 	0x00000000
+
+
+	.org 0x0F0006EC
 
 
 	.org 0x0F000738 
