@@ -447,32 +447,32 @@ USER_255:       	00000000
 00067A 20CD                 	MOVE.L  A5,(A0)+ 		;
 00067C 20CE                 	MOVE.L  A6,(A0)+ 		;
 00067E 20CF                 	MOVE.L  A7,(A0)+ 		;
-000680 4E72                 	STOP    					;
+000680 4E72                 	STOP    			;
 000682 2700                 	MOVE.L  D0,-(A3) 		;
-000684 4E71                 	NOP     					;
-000686 60FC                 	BRA     #$FFFC				;
+000684 4E71                 	NOP     			;
+000686 60FC                 	BRA     #$FFFC			;
 
 reset:
-000688 46FC         2000    	MOVE    #$00002000, SR			;
-00068C 4FF9         00077834	LEA     $00077834.L, A7			;
+000688 46FC         2000    	MOVE    #$00002000, SR		;
+00068C 4FF9         00077834	LEA     $00077834.L, A7		;
 000692 23FC 808080800007FE02	MOVE.L  #$80808080,$0007FE02.L 	;
 00069C 33FC 0080    0007FE00	MOVE.W  #$00000080,$0007FE00.L 	;
-0006A4 7000                 	MOVEQ   #$00, D0				;
-0006A6 23C0         0007FE10	MOVE.L  D0,$0007FE10.L 			;
-0006AC 23C0         0007FE18	MOVE.L  D0,$0007FE18.L 			;
-0006B2 72FF                 	MOVEQ   #$FF, D1				;
-0006B4 41F9         0007F000	LEA     $0007F000.L, A0			;
-0006BA 20C0                 	MOVE.L  D0,(A0)+ 				;
-0006BC 51C9 FFFC            	DBRA    D1, #$FFFC			;
-0006C0 4DFA         182A    	LEA     (#$182A,PC), A6			;
-0006C4 4BF9         00100000	LEA     $00100000.L, A5			;
-0006CA 49F9         0007F000	LEA     $0007F000.L, A4			;
-0006D0 6100 008A            	BRS     #$008A				;
-0006D4 6100 015A            	BRS     #$015A				;
+0006A4 7000                 	MOVEQ   #$00, D0		;
+0006A6 23C0         0007FE10	MOVE.L  D0,$0007FE10.L 		;
+0006AC 23C0         0007FE18	MOVE.L  D0,$0007FE18.L 		;
+0006B2 72FF                 	MOVEQ   #$FF, D1		;u32 len = 0xFFFFFFFF;//???
+0006B4 41F9         0007F000	LEA     $0007F000.L, A0		;u32* dst = 0x0007F000;
+0006BA 20C0                 	MOVE.L  D0,(A0)+ 		;for (int i=0 i<=len; i++)
+0006BC 51C9 FFFC            	DBRA    D1, #$FFFC		;  *dst++ = 0;
+0006C0 4DFA         182A    	LEA     (#$182A,PC), A6		;
+0006C4 4BF9         00100000	LEA     $00100000.L, A5		;
+0006CA 49F9         0007F000	LEA     $0007F000.L, A4		;
+0006D0 6100 008A            	BRS     #$008A			;
+0006D4 6100 015A            	BRS     #$015A			;
 0006D8 3B7C 0143    0418    	MOVE.W  #$00000143,(#$0418,A5) 	;
 0006DE 3B7C 01B4    041A    	MOVE.W  #$000001B4,(#$041A,A5) 	;
-0006E4 006D 00C0    041E    	ORI.W   #$041E, (#$041A,A5) 		;
-0006EA 006D 00C0    0422    	ORI.W   #$0422, (#$041A,A5) 		;
+0006E4 006D 00C0    041E    	ORI.W   #$041E, (#$041A,A5) 	;
+0006EA 006D 00C0    0422    	ORI.W   #$0422, (#$041A,A5) 	;
 0006F0 23FC 0007F000000004FC	MOVE.L  #$0007F000,$000004FC.L 	;
 L0006FA:
 0006FA 4A39         0007FE00	TST.B   $0007FE00.L			;
