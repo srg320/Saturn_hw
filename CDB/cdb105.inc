@@ -152,14 +152,17 @@ delayed_handles:					;handle_t delayed_handles[2];//0x0F000240-0x0F000247
 	dc.l 	0x00000000,0x00000000
 
 
-	.org 0F000250
-unknown_0250:					;0x0F000250-0x0F000253
+	.org 0x0F000250
+data_transfer_src:				;0x0F000250-0x0F000253
 	dc.l 	0x00000000
-unknown_0254:					;0x0F000254-0x0F000255
+data_transfer_len:				;0x0F000254-0x0F000255
 	dc.w 	0x0000
 
 
-	.org 0F00025C
+	.org 0x0F00025B
+data_transfer_flag:				;u8 data_transfer_flag;//0x0F00025B
+	dc.b 	0x00
+
 init_cd_flags:					;0x0F00025C
 	dc.b 	0x00
 	IFLAG_RESET 		= 0x01
@@ -169,8 +172,10 @@ init_cd_flags:					;0x0F00025C
 	IFLAG_SPEED_1X 		= 0x10
 	IFLAG_NO_CHANGE 		= 0x80
 
-unknown_025D:					;0x0F00025D-0x0F00025E
-	dc.b 	0x00,0x00
+play_mode:					;0x0F00025D (0x0F00025C+0x01)
+	dc.b 	0x00
+unknown_025E:					;0x0F00025E
+	dc.b 	0x00
 cdd_cmd_flags:					;0x0F00025F (0x0F00025C+0x03)
 	dc.b 	0x00
 init_cd_stby:					;0x0F000260 (0x0F00025C+0x04)
@@ -185,7 +190,11 @@ init_cd_retry:					;0x0F000263 (0x0F00025C+0x07)
 	RETRY_NO 			= 0x40
 	RETRY_INFINITE 		= 0x80
 
-	.org 0F00026C
+start_play_pos:					;0x0F000264-0x0F000267 (0x0F00025C+0x08)
+	dc.l 	0x00000000
+end_play_pos:					;0x0F000268-0x0F00026B (0x0F00025C+0x0C)
+	dc.l 	0x00000000
+
 cd_status_buf1:					;0x0F00026C-0x0F000273 (0x0F00025C+0x10)
 	dc.b 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 cd_status_buf2:					;0x0F000274-0x0F00027B (0x0F00025C+0x18)
@@ -224,6 +233,25 @@ cd_status:						;0x0F00028A (0x0F00025C+0x2E)
 	STAT_TRNS 			= 0x40
 	STAT_WAIT 			= 0x80
 
+
+play_ctrl_adr:						;0x0F00028C (0x0F00025C+0x30)
+	dc.b 	0x00
+play_tno:						;0x0F00028D (0x0F00025C+0x31)
+	dc.b 	0x00
+play_idx:						;0x0F00028E (0x0F00025C+0x32)
+	dc.b 	0x00
+unknown_28F:						;0x0F00028F (0x0F00025C+0x33)
+	dc.b 	0x00
+unknown_290:						;0x0F000290-0x0F000293 (0x0F00025C+0x34)
+	dc.l 	0x00000000
+start_play_fad:						;0x0F000294-0x0F000297 (0x0F00025C+0x38)
+	dc.l 	0x00000000
+start_play_pos_buf:					;0x0F000298-0x0F00029B (0x0F00025C+0x3C)
+	dc.l 	0x00000000
+end_play_pos_buf:					;0x0F00029C-0x0F00029F (0x0F00025C+0x40)
+	dc.l 	0x00000000
+start_play_pos_work:					;0x0F0002A0-0x0F0002A3 (0x0F00025C+0x44)
+	dc.l 	0x00000000
 
 	.org 0F0002A5
 cd_state:						;0x0F0002A5 (0x0F00025C+0x49)
@@ -271,6 +299,8 @@ cdd_rx_data:					;0x0F0002D0-0x0F0002DB (0x0F00025C+0x74)
 	cdd_rx_done 	= 11			;  u8 done;
 							;} cdd_rx_data;
 
+unknown_02DC:					;0x0F0002DC-0x0F0002DF (0x0F00025C+0x80)
+	dc.l 	0x00000000
 
 
 	.org 0x0F0002F0
@@ -457,7 +487,7 @@ filter_connection_array:			;0x0F0005A0-0x0F0005FF
 	filter_conn_fout = 3			;  u8 fout;
 							;} filter_connection_array[24];
 
-partition_data_array:				;0x0F000600-0x0F00068F
+partition_data_array:				;partition_data partition_data_array[24];//0x0F000600-0x0F00068F
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
 	dc.b	0x00,0x00,0x00,0x00,0x00,0x00
@@ -558,6 +588,16 @@ set_command_flag:					;0x0F000740
 
 ;************************task7 area************************************
 	.org 0x0F000744 
+file_cr1:						;u16 file_cr1; //0x0F000744-0x0F000745
+	dc.w 	0x0000
+file_cr2:						;u16 file_cr2; //0x0F000746-0x0F000747
+	dc.w 	0x0000
+file_cr3:						;u16 file_cr3; //0x0F000748-0x0F000749
+	dc.w 	0x0000
+file_cr4:						;u16 file_cr4; //0x0F00074A-0x0F00074B
+	dc.w 	0x0000
+
+
 
 	.org 0x0F000772
 curr_buf_num:					;0x0F000772
@@ -789,6 +829,41 @@ cddata_dram_buf:					;0x09000230
 							;};
 
 
+							;struct fs_volume {
+	type 			= 0			;  u8 type;
+	id 			= 1			;  u8 id[5];
+	ver 			= 6			;  u8 ver;
+	data 			= 7			;  u8 data[2041];
+							;};
+
+							;struct fs_dir {
+	len 			= 0			;  u8 len;
+	ext_len 		= 1			;  u8 ext_len;
+	extent_le		= 2			;  u32 extent_le;
+	extent		= 6			;  u32 extent;
+	size 			= 10			;  u32 size_le;
+	size 			= 14			;  u32 size;
+	size 			= 18			;  u8 date[7];
+	size 			= 25			;  u8 flags;
+	size 			= 26			;  u8 file_unit_size;
+	size 			= 27			;  u8 interleave;
+	size 			= 28			;  u8 vol_seq_num[4];
+	size 			= 32			;  u8 name_len;
+	size 			= 33			;  u8 name[];
+							;};
+
+	.org 0x09074210
+
+							;struct file_info {
+	type 			= 0			;  u32 fad;
+	id 			= 4			;  u32 size;
+	m8			= 8			;  u8 m8;
+	m9			= 9			;  u8 m9;
+	m10			= 10			;  u8 m10;
+	m11			= 11			;  u8 m11;
+							;};
+
+file_info_table:					;file_info file_info_table[256]; //0x09074210-0x09074E0F
 
 
 	.org 0x0907ADB0
